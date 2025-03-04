@@ -34,12 +34,6 @@ export async function POST(req) {
       return NextResponse.json({ error: "Invalid request" }, { status: 401 })
     }
 
-    // Add debug logging for guild information
-    if (body.guild_id) {
-      console.log("Guild ID:", body.guild_id)
-      console.log("Guild object:", body.guild)
-    }
-
     console.log("Request body type:", body.type)
 
     // Handle Discord's ping
@@ -325,8 +319,25 @@ export async function POST(req) {
 
           const user = await userResponse.json()
 
-          // Get server name - properly access it from the guild object
-          const guildName = body.guild_id ? body.guild?.name || "Discord Server" : "Discord Server"
+          // Directly fetch the guild information to get the server name
+          let guildName = "Discord Server" // Default fallback
+
+          try {
+            if (guildId) {
+              const guildResponse = await discordRequest(`guilds/${guildId}`, {
+                method: "GET",
+              })
+
+              const guild = await guildResponse.json()
+              if (guild && guild.name) {
+                guildName = guild.name
+                console.log(`Successfully fetched guild name: ${guildName}`)
+              }
+            }
+          } catch (guildError) {
+            console.error("Error fetching guild information:", guildError)
+            // Continue with the default name if there's an error
+          }
 
           // Create the warning message
           let warningMessage = `**Warning from ${guildName}**\n\n`
