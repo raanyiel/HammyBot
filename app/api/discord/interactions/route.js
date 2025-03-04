@@ -18,7 +18,7 @@ const PONG = 1
 const CHANNEL_MESSAGE_WITH_SOURCE = 4
 
 // Configure your GitHub repository URL here - you can update this to your actual repository URL
-const GITHUB_REPO_URL = "https://github.com/yourusername/hammy-bot"
+const GITHUB_REPO_URL = "https://github.com/Hammy7361/HammyBot"
 
 export async function POST(req) {
   try {
