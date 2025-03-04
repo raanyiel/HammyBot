@@ -1,52 +1,48 @@
 import { NextResponse } from "next/server"
+import { verifyKey } from "discord-interactions"
+import { createClient, handleInteraction } from "../../../../lib/discord"
 
-// This is a simplified version just to test if Discord is reaching your endpoint
 export async function POST(req) {
   try {
-    // Log all headers
-    const headers = {}
-    req.headers.forEach((value, key) => {
-      headers[key] = value
-    })
+    // Get request body as text
+    const bodyText = await req.text()
 
-    console.log("Received Discord interaction")
-    console.log("Headers:", JSON.stringify(headers, null, 2))
+    // Get Discord signature headers
+    const signature = req.headers.get("x-signature-ed25519")
+    const timestamp = req.headers.get("x-signature-timestamp")
 
-    // Get the raw body
-    const body = await req.text()
-    console.log("Body length:", body.length)
-    console.log("Body preview:", body.substring(0, 200) + (body.length > 200 ? "..." : ""))
+    // Verify the request
+    const isValidRequest = verifyKey(bodyText, signature, timestamp, process.env.DISCORD_PUBLIC_KEY)
 
-    // Parse the body
-    let parsedBody
-    try {
-      parsedBody = JSON.parse(body)
-      console.log("Parsed body type:", parsedBody.type)
-    } catch (e) {
-      console.error("Failed to parse body as JSON:", e.message)
+    if (!isValidRequest) {
+      return NextResponse.json({ error: "Invalid request signature" }, { status: 401 })
     }
 
-    // If this is a ping from Discord (type 1), respond with pong (type 1)
-    if (parsedBody && parsedBody.type === 1) {
-      console.log("Responding to ping with pong")
+    // Parse the request body
+    const interaction = JSON.parse(bodyText)
+
+    // Handle Discord ping
+    if (interaction.type === 1) {
       return NextResponse.json({ type: 1 })
     }
 
-    // For all other requests, just acknowledge them
-    console.log("Responding with acknowledgement")
-    return NextResponse.json({
-      type: 4,
-      data: { content: "Command received! This is a test response." },
-    })
+    // Initialize Discord client
+    const client = createClient()
+
+    // Log in to Discord
+    await client.login(process.env.DISCORD_BOT_TOKEN)
+
+    // Process the interaction
+    const response = await handleInteraction(interaction)
+
+    // Destroy the client to clean up
+    client.destroy()
+
+    // Return the response
+    return NextResponse.json(response)
   } catch (error) {
-    console.error("Error in interactions endpoint:", error)
-    return NextResponse.json(
-      {
-        error: "Error processing request",
-        message: error.message,
-      },
-      { status: 500 },
-    )
+    console.error("Error processing interaction:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
