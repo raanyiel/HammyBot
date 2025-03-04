@@ -302,6 +302,7 @@ export async function POST(req) {
       else if (name === "warn") {
         const userId = options.find((opt) => opt.name === "user")?.value
         const reason = options.find((opt) => opt.name === "reason")?.value
+        const anonymous = options.find((opt) => opt.name === "anonymous")?.value ?? true // Default to true if not specified
 
         if (!userId || !reason) {
           return NextResponse.json({
@@ -318,6 +319,9 @@ export async function POST(req) {
 
           const user = await userResponse.json()
 
+          // Get server name
+          const guildName = body.guild.name
+
           // Send a DM to the user with the warning
           let dmSent = false
           try {
@@ -329,11 +333,21 @@ export async function POST(req) {
 
             const dmChannel = await dmChannelResponse.json()
 
+            // Create the warning message
+            let warningMessage = `**Warning from ${guildName}**\n\n`
+
+            // Add moderator info if not anonymous
+            if (!anonymous) {
+              warningMessage += `**Moderator:** ${body.member.user.username}\n\n`
+            }
+
+            warningMessage += `**Reason:** ${reason}`
+
             // Send the warning message
             await discordRequest(`channels/${dmChannel.id}/messages`, {
               method: "POST",
               body: JSON.stringify({
-                content: `**Warning from ${body.guild.name}**\n\nReason: ${reason}`,
+                content: warningMessage,
               }),
             })
 
@@ -346,6 +360,7 @@ export async function POST(req) {
           // Send log if logging is enabled
           const logEmbed = createLogEmbed("warn", moderator, user, reason, {
             "DM Sent": dmSent ? "Yes" : "No (User may have DMs disabled)",
+            Anonymous: anonymous ? "Yes" : "No",
           })
 
           sendLogMessage(guildId, logEmbed)

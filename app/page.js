@@ -57,8 +57,10 @@ export default function Home() {
           <p style={{ fontFamily: "monospace" }}>/purge [amount]</p>
           <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>Deletes a specified number of messages (1-100)</p>
 
-          <p style={{ fontFamily: "monospace" }}>/warn @user [reason]</p>
-          <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>Warns a user with a specified reason</p>
+          <p style={{ fontFamily: "monospace" }}>/warn @user [reason] [anonymous]</p>
+          <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>
+            Warns a user with a specified reason. Set anonymous to false to identify yourself.
+          </p>
 
           <p style={{ fontFamily: "monospace" }}>/kick @user [reason]</p>
           <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>Kicks a user from the server</p>
