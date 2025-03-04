@@ -12,13 +12,22 @@ import {
 // Interaction type constants
 const PING = 1
 const APPLICATION_COMMAND = 2
+const MESSAGE_COMPONENT = 3
 
 // Interaction response type constants
 const PONG = 1
 const CHANNEL_MESSAGE_WITH_SOURCE = 4
+const DEFERRED_UPDATE_MESSAGE = 6
+const UPDATE_MESSAGE = 7
+
+// Component types
+const BUTTON = 2
 
 // Configure your GitHub repository URL here - you can update this to your actual repository URL
 const GITHUB_REPO_URL = "https://github.com/Hammy7361/HammyBot"
+
+// Store verification role IDs (in a real app, use a database)
+const verificationRoles = new Map()
 
 export async function POST(req) {
   try {
@@ -45,6 +54,81 @@ export async function POST(req) {
       return NextResponse.json({ type: PONG })
     }
 
+    // Handle button interactions
+    if (body.type === MESSAGE_COMPONENT) {
+      console.log("Handling component interaction:", body.data?.custom_id)
+
+      const { custom_id } = body.data
+      const guildId = body.guild_id
+      const userId = body.member.user.id
+
+      // Handle verification button click
+      if (custom_id.startsWith("verify_")) {
+        const roleId = custom_id.replace("verify_", "")
+
+        try {
+          // Add the role to the user
+          await discordRequest(`guilds/${guildId}/members/${userId}/roles/${roleId}`, {
+            method: "PUT",
+          })
+
+          // Get user information for logging
+          const userResponse = await discordRequest(`users/${userId}`, {
+            method: "GET",
+          })
+          const user = await userResponse.json()
+
+          // Get role information for logging
+          const roleResponse = await discordRequest(`guilds/${guildId}/roles`, {
+            method: "GET",
+          })
+          const roles = await roleResponse.json()
+          const role = roles.find((r) => r.id === roleId)
+
+          // Get information about the user who executed the command
+          const moderator = {
+            id: "BOT",
+            username: "Verification System",
+          }
+
+          // Send log if logging is enabled
+          const logEmbed = createLogEmbed("role add", moderator, user, "User verified themselves", {
+            Role: role ? `${role.name} (${role.id})` : roleId,
+          })
+
+          sendLogMessage(guildId, logEmbed)
+
+          // Respond with an ephemeral message only the user can see
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: `✅ You have been verified and given the ${role ? role.name : "verification"} role!`,
+              flags: 64, // Ephemeral flag - only visible to the user who clicked
+            },
+          })
+        } catch (error) {
+          console.error("Error verifying user:", error)
+
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: "❌ There was an error verifying you. Please contact a server administrator.",
+              flags: 64, // Ephemeral flag
+            },
+          })
+        }
+      }
+
+      // Default response for unhandled component interactions
+      return NextResponse.json({
+        type: CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content: "This interaction is not supported.",
+          flags: 64, // Ephemeral flag
+        },
+      })
+    }
+
     // Handle slash commands
     if (body.type === APPLICATION_COMMAND) {
       console.log("Handling slash command:", body.data?.name)
@@ -57,6 +141,74 @@ export async function POST(req) {
       const moderator = {
         id: body.member.user.id,
         username: body.member.user.username,
+      }
+
+      // Handle verify command
+      if (name === "verify") {
+        const roleOption = options.find((opt) => opt.name === "role")
+        const titleOption = options.find((opt) => opt.name === "title")
+        const descriptionOption = options.find((opt) => opt.name === "description")
+        const buttonTextOption = options.find((opt) => opt.name === "button_text")
+        const colorOption = options.find((opt) => opt.name === "color")
+
+        if (!roleOption) {
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "Please specify a role to give when users verify." },
+          })
+        }
+
+        const roleId = roleOption.value
+        const title = titleOption?.value || "Server Verification"
+        const description =
+          descriptionOption?.value || "Click the button below to verify yourself and gain access to the server."
+        const buttonText = buttonTextOption?.value || "Verify Me"
+
+        // Parse color or use default blue
+        let color = 0x5865f2 // Discord blurple
+        if (colorOption?.value) {
+          try {
+            // Remove # if present and convert to decimal
+            const colorHex = colorOption.value.replace(/^#/, "")
+            color = Number.parseInt(colorHex, 16)
+          } catch (e) {
+            console.error("Invalid color format:", e)
+          }
+        }
+
+        // Store the role ID for verification
+        verificationRoles.set(guildId, roleId)
+
+        // Create the verification embed
+        return NextResponse.json({
+          type: CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            embeds: [
+              {
+                title: title,
+                description: description,
+                color: color,
+                footer: {
+                  text: "Click the button below to verify",
+                },
+                timestamp: new Date().toISOString(),
+              },
+            ],
+            components: [
+              {
+                type: 1, // ACTION_ROW
+                components: [
+                  {
+                    type: BUTTON,
+                    style: 1, // PRIMARY
+                    label: buttonText,
+                    custom_id: `verify_${roleId}`,
+                  },
+                ],
+              },
+            ],
+          },
+        })
       }
 
       // Handle GitHub command
@@ -366,11 +518,15 @@ export async function POST(req) {
           }
 
           // Create the warning message
-          let warningMessage = `**Warning from ${guildName}**\n\n`
+          let warningMessage = `**Warning from ${guildName}**
+
+`
 
           // Add moderator info if not anonymous
           if (!anonymous) {
-            warningMessage += `**Moderator:** ${body.member.user.username}\n\n`
+            warningMessage += `**Moderator:** ${body.member.user.username}
+
+`
           }
 
           warningMessage += `**Reason:** ${reason}`

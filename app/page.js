@@ -102,7 +102,10 @@ export default function Home() {
           <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Utility Commands</h3>
 
           <p style={{ fontFamily: "monospace" }}>/github</p>
-          <p style={{ color: "#4b5563" }}>Get a link to the bot's GitHub repository</p>
+          <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>Get a link to the bot's GitHub repository</p>
+
+          <p style={{ fontFamily: "monospace" }}>/verify @role [title] [description] [button_text] [color]</p>
+          <p style={{ color: "#4b5563" }}>Create a verification embed with a button for users to verify themselves</p>
         </div>
       </div>
 
