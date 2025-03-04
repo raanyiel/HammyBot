@@ -1,23 +1,47 @@
 export default function Home() {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-24">
-        <h1 className="text-4xl font-bold mb-8">Discord Role Bot</h1>
-        <p className="text-xl mb-4">Your Discord bot is ready!</p>
-        <p className="mb-2">To register commands, visit:</p>
-        <code className="bg-gray-800 text-white p-2 rounded mb-8">/api/discord/register</code>
-  
-        <div className="max-w-md">
-          <h2 className="text-2xl font-semibold mb-4">Available Commands:</h2>
-          <div className="bg-gray-100 p-4 rounded-lg">
-            <p className="font-mono">/role assign @user @role</p>
-            <p className="text-gray-600 mb-4">Adds a role to a user</p>
-  
-            <p className="font-mono">/role unassign @user @role</p>
-            <p className="text-gray-600">Removes a role from a user</p>
-          </div>
+  return (
+    <main
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+      }}
+    >
+      <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "2rem" }}>Discord Role Bot</h1>
+      <p style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>Your Discord bot is ready!</p>
+      <p style={{ marginBottom: "0.5rem" }}>To register commands, visit:</p>
+      <code
+        style={{
+          background: "#1a1a1a",
+          color: "white",
+          padding: "0.5rem",
+          borderRadius: "0.25rem",
+          marginBottom: "2rem",
+        }}
+      >
+        /api/discord/register
+      </code>
+
+      <div style={{ maxWidth: "28rem" }}>
+        <h2 style={{ fontSize: "1.5rem", fontWeight: "semibold", marginBottom: "1rem" }}>Available Commands:</h2>
+        <div
+          style={{
+            background: "#f3f4f6",
+            padding: "1rem",
+            borderRadius: "0.5rem",
+          }}
+        >
+          <p style={{ fontFamily: "monospace" }}>/role add @user @role</p>
+          <p style={{ color: "#4b5563", marginBottom: "1rem" }}>Adds a role to a user</p>
+
+          <p style={{ fontFamily: "monospace" }}>/role remove @user @role</p>
+          <p style={{ color: "#4b5563" }}>Removes a role from a user</p>
         </div>
-      </main>
-    )
-  }
-  
-  
+      </div>
+    </main>
+  )
+}
+
