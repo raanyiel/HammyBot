@@ -6,11 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "register": "node scripts/register-commands.js"
+    "lint": "next lint"
   },
   "dependencies": {
-    "discord.js": "^14.14.1",
+    "discord-interactions": "^3.4.0",
     "next": "14.0.4",
     "react": "^18",
     "react-dom": "^18"
