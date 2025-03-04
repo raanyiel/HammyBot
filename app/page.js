@@ -97,12 +97,34 @@ export default function Home() {
             background: "#f3f4f6",
             padding: "1rem",
             borderRadius: "0.5rem",
+            marginBottom: "1rem",
           }}
         >
-          <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Utility Commands</h3>
+          <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>GitHub Integration</h3>
 
           <p style={{ fontFamily: "monospace" }}>/github</p>
           <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>Get a link to the bot's GitHub repository</p>
+
+          <p style={{ fontFamily: "monospace" }}>/github-webhook setup [repository] [#channel] [events]</p>
+          <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>
+            Set up GitHub webhook notifications for a repository
+          </p>
+
+          <p style={{ fontFamily: "monospace" }}>/github-webhook list</p>
+          <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>List all GitHub webhook integrations</p>
+
+          <p style={{ fontFamily: "monospace" }}>/github-webhook remove [repository]</p>
+          <p style={{ color: "#4b5563" }}>Remove GitHub webhook integration for a repository</p>
+        </div>
+
+        <div
+          style={{
+            background: "#f3f4f6",
+            padding: "1rem",
+            borderRadius: "0.5rem",
+          }}
+        >
+          <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Utility Commands</h3>
 
           <p style={{ fontFamily: "monospace" }}>/verify @role [title] [description] [button_text] [color]</p>
           <p style={{ color: "#4b5563" }}>Create a verification embed with a button for users to verify themselves</p>

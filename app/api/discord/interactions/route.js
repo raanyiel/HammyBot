@@ -7,6 +7,9 @@ import {
   getLoggingChannel,
   sendLogMessage,
   createLogEmbed,
+  setGithubWebhook,
+  removeGithubWebhook,
+  listGithubWebhooks,
 } from "../../../../lib/discord"
 
 // Interaction type constants
@@ -697,6 +700,132 @@ export async function POST(req) {
           return NextResponse.json({
             type: CHANNEL_MESSAGE_WITH_SOURCE,
             data: { content: errorMessage },
+          })
+        }
+      }
+
+      // Handle GitHub webhook command
+      else if (name === "github-webhook") {
+        const subCommand = options[0].name
+
+        if (subCommand === "setup") {
+          const repositoryOption = options[0].options.find((opt) => opt.name === "repository")
+          const channelOption = options[0].options.find((opt) => opt.name === "channel")
+          const eventsOption = options[0].options.find((opt) => opt.name === "events")
+
+          if (!repositoryOption || !channelOption) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: { content: "Please specify both a repository and a channel." },
+            })
+          }
+
+          const repository = repositoryOption.value
+          const channelId = channelOption.value
+          const events = eventsOption?.value || "all"
+
+          // Validate repository format (owner/repo)
+          if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repository)) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: { content: "Invalid repository format. Please use the format: owner/repo" },
+            })
+          }
+
+          // Validate events format
+          const validEvents = ["push", "pr", "issue", "release", "all"]
+          const eventList = events.split(",")
+          for (const event of eventList) {
+            if (!validEvents.includes(event.trim())) {
+              return NextResponse.json({
+                type: CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                  content: `Invalid event: ${event}. Valid events are: ${validEvents.join(", ")}`,
+                },
+              })
+            }
+          }
+
+          // Set up the webhook
+          setGithubWebhook(guildId, repository, channelId, events)
+
+          // Generate the webhook URL
+          const webhookUrl = `${req.headers.get("origin") || "https://your-bot-url.vercel.app"}/api/github/webhook`
+
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: `GitHub webhook set up for \`${repository}\`!
+
+To complete setup, add this webhook URL to your GitHub repository:
+\`\`\`
+${webhookUrl}
+\`\`\`
+
+1. Go to your repository on GitHub
+2. Click on "Settings" > "Webhooks" > "Add webhook"
+3. Set the Payload URL to the URL above
+4. Set Content type to "application/json"
+5. Set Secret to your GITHUB_WEBHOOK_SECRET environment variable
+6. Select events based on your configuration: ${events}
+7. Click "Add webhook"`,
+              flags: 64, // Ephemeral flag - only visible to the command user
+            },
+          })
+        } else if (subCommand === "list") {
+          // List all webhooks
+          const webhooks = listGithubWebhooks(guildId)
+
+          if (webhooks.length === 0) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "No GitHub webhooks are configured for this server.",
+                flags: 64,
+              },
+            })
+          }
+
+          const webhookList = webhooks
+            .map((webhook) => `- \`${webhook.repository}\` → <#${webhook.channelId}> (Events: ${webhook.events})`)
+            .join("\n")
+
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: `**GitHub Webhooks for this server:**\n${webhookList}`,
+              flags: 64,
+            },
+          })
+        } else if (subCommand === "remove") {
+          const repositoryOption = options[0].options.find((opt) => opt.name === "repository")
+
+          if (!repositoryOption) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: { content: "Please specify a repository." },
+            })
+          }
+
+          const repository = repositoryOption.value
+          const removed = removeGithubWebhook(guildId, repository)
+
+          if (!removed) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `No webhook found for repository \`${repository}\`.`,
+                flags: 64,
+              },
+            })
+          }
+
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: `Webhook for \`${repository}\` has been removed.`,
+              flags: 64,
+            },
           })
         }
       }
