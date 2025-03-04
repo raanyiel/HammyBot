@@ -13,7 +13,8 @@ export default function Home() {
     >
       <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "2rem" }}>Discord Moderation Bot</h1>
       <p style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>Your Discord bot is ready!</p>
-      <p style={{ marginBottom: "0.5rem" }}>To register commands, visit:</p>
+      <p style={{ marginBottom: "0.5rem" }}>Commands are registered automatically on deployment.</p>
+      <p style={{ marginBottom: "2rem" }}>To manually register commands, visit:</p>
       <code
         style={{
           background: "#1a1a1a",
