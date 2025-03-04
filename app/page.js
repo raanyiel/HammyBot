@@ -75,6 +75,7 @@ export default function Home() {
             background: "#f3f4f6",
             padding: "1rem",
             borderRadius: "0.5rem",
+            marginBottom: "1rem",
           }}
         >
           <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Logging Commands</h3>
@@ -89,6 +90,19 @@ export default function Home() {
 
           <p style={{ fontFamily: "monospace" }}>/logging status</p>
           <p style={{ color: "#4b5563" }}>Shows the current logging status and channel</p>
+        </div>
+
+        <div
+          style={{
+            background: "#f3f4f6",
+            padding: "1rem",
+            borderRadius: "0.5rem",
+          }}
+        >
+          <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Utility Commands</h3>
+
+          <p style={{ fontFamily: "monospace" }}>/github</p>
+          <p style={{ color: "#4b5563" }}>Get a link to the bot's GitHub repository</p>
         </div>
       </div>
 

@@ -17,6 +17,9 @@ const APPLICATION_COMMAND = 2
 const PONG = 1
 const CHANNEL_MESSAGE_WITH_SOURCE = 4
 
+// Configure your GitHub repository URL here - you can update this to your actual repository URL
+const GITHUB_REPO_URL = "https://github.com/yourusername/hammy-bot"
+
 export async function POST(req) {
   try {
     console.log("Received Discord interaction")
@@ -56,8 +59,31 @@ export async function POST(req) {
         username: body.member.user.username,
       }
 
+      // Handle GitHub command
+      if (name === "github") {
+        return NextResponse.json({
+          type: CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: `📚 **GitHub Repository**\nCheck out my source code and contribute to my development: ${GITHUB_REPO_URL}`,
+            components: [
+              {
+                type: 1, // ACTION_ROW
+                components: [
+                  {
+                    type: 2, // BUTTON
+                    style: 5, // LINK
+                    label: "View on GitHub",
+                    url: GITHUB_REPO_URL,
+                  },
+                ],
+              },
+            ],
+          },
+        })
+      }
+
       // Handle logging command
-      if (name === "logging") {
+      else if (name === "logging") {
         const subCommand = options[0].name
 
         if (subCommand === "set") {
