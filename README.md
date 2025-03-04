@@ -173,13 +173,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Support
 
-If you need help with the bot, please open an issue on GitHub or contact the maintainer.
+If you need help with the bot, please open an issue on GitHub or contact the me.
 
 ---
 
 Made with ❤️ using Next.js and Discord Interactions API
-
-```plaintext
-
-This README provides comprehensive documentation for your Discord moderation bot. It includes setup instructions, command details, troubleshooting tips, and information about the bot's features. Feel free to customize it further to match your specific needs or branding!
-```
