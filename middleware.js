@@ -6,7 +6,7 @@ export function middleware(request) {
   return NextResponse.next()
 }
 
-// Configure the middleware to run only on specific paths
+// Configure the middleware to run only on specific paths if needed
 export const config = {
   matcher: [], // Empty array means it won't match any paths
 }

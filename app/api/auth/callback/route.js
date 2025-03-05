@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
 
-const prisma = new PrismaClient()
+// Mark this route as dynamic to prevent static generation
+export const dynamic = "force-dynamic"
 
-export async function GET(req) {
+export async function GET(request) {
+  const url = new URL(request.url)
+  const code = url.searchParams.get("code")
+
+  if (!code) {
+    console.error("Missing authorization code")
+    return NextResponse.redirect(new URL("/dashboard/login?error=missing_code", url.origin))
+  }
+
   try {
-    // Get the authorization code from the URL
-    const url = new URL(req.url)
-    const code = url.searchParams.get("code")
-    const error = url.searchParams.get("error")
-
-    // If there's an error or no code, handle it
-    if (error || !code) {
-      console.error("OAuth error:", error || "No code provided")
-      return NextResponse.redirect(new URL("/?error=oauth_failed", req.url))
-    }
+    console.log("Exchanging code for token...")
 
     // Exchange the code for an access token
     const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
@@ -27,21 +26,21 @@ export async function GET(req) {
         client_secret: process.env.DISCORD_CLIENT_SECRET,
         grant_type: "authorization_code",
         code,
-        redirect_uri:
-          process.env.NEXT_PUBLIC_REDIRECT_URI ||
-          `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/auth/callback`,
+        redirect_uri: process.env.NEXT_PUBLIC_REDIRECT_URI || `${url.origin}/api/auth/callback`,
       }),
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json().catch(() => ({}))
-      console.error("Token exchange error:", errorData)
-      return NextResponse.redirect(new URL("/?error=token_exchange", req.url))
+      const errorText = await tokenResponse.text()
+      console.error("Token exchange error:", errorText)
+      return NextResponse.redirect(new URL("/dashboard/login?error=token_exchange", url.origin))
     }
 
     const tokenData = await tokenResponse.json()
+    console.log("Token received successfully")
 
     // Get the user's information
+    console.log("Fetching user data...")
     const userResponse = await fetch("https://discord.com/api/users/@me", {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
@@ -49,13 +48,15 @@ export async function GET(req) {
     })
 
     if (!userResponse.ok) {
-      console.error("Failed to get user info")
-      return NextResponse.redirect(new URL("/?error=user_info", req.url))
+      console.error("User fetch error:", await userResponse.text())
+      return NextResponse.redirect(new URL("/dashboard/login?error=user_fetch", url.origin))
     }
 
     const userData = await userResponse.json()
+    console.log("User data fetched successfully:", userData.username)
 
-    // Get the guilds the bot was added to
+    // Get the user's guilds
+    console.log("Fetching guilds data...")
     const guildsResponse = await fetch("https://discord.com/api/users/@me/guilds", {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
@@ -63,45 +64,52 @@ export async function GET(req) {
     })
 
     if (!guildsResponse.ok) {
-      console.error("Failed to get guilds info")
-      return NextResponse.redirect(new URL("/?error=guilds_info", req.url))
+      console.error("Guilds fetch error:", await guildsResponse.text())
+      return NextResponse.redirect(new URL("/dashboard/login?error=guilds_fetch", url.origin))
     }
 
     const guildsData = await guildsResponse.json()
+    console.log(`Fetched ${guildsData.length} guilds`)
 
-    // Store user data in the database
-    try {
-      await prisma.user.upsert({
-        where: { id: userData.id },
-        update: {
-          username: userData.username,
-          avatar: userData.avatar,
-          accessToken: tokenData.access_token,
-          refreshToken: tokenData.refresh_token,
-          tokenExpires: new Date(Date.now() + tokenData.expires_in * 1000),
-          lastLogin: new Date(),
-        },
-        create: {
-          id: userData.id,
-          username: userData.username,
-          avatar: userData.avatar,
-          accessToken: tokenData.access_token,
-          refreshToken: tokenData.refresh_token,
-          tokenExpires: new Date(Date.now() + tokenData.expires_in * 1000),
-          lastLogin: new Date(),
-        },
-      })
+    // Get the bot's guilds
+    console.log("Fetching bot guilds...")
+    const botGuildsResponse = await fetch("https://discord.com/api/v10/users/@me/guilds", {
+      headers: {
+        Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+      },
+    })
 
-      // You might want to create a session cookie here
-
-      return NextResponse.redirect(new URL(`/dashboard?success=true&user=${userData.username}`, req.url))
-    } catch (error) {
-      console.error("Failed to store user data:", error)
-      return NextResponse.redirect(new URL("/?error=database_error", req.url))
+    let botGuilds = []
+    if (botGuildsResponse.ok) {
+      botGuilds = await botGuildsResponse.json()
+      console.log(`Bot is in ${botGuilds.length} guilds`)
+    } else {
+      console.error("Failed to fetch bot guilds:", await botGuildsResponse.text())
     }
+
+    // Filter guilds where the user has admin permissions
+    const adminGuilds = guildsData.filter((guild) => (guild.permissions & 0x8) === 0x8 || guild.owner)
+
+    console.log(`User has admin permissions in ${adminGuilds.length} guilds`)
+
+    // Get the guild IDs where the bot is installed
+    const botGuildIds = new Set(botGuilds.map((guild) => guild.id))
+
+    // Filter admin guilds to only include those where the bot is installed
+    const managedGuilds = adminGuilds.filter((guild) => botGuildIds.has(guild.id))
+
+    console.log(`User can manage ${managedGuilds.length} guilds with the bot installed`)
+
+    // Create a query string with the data
+    const queryParams = new URLSearchParams()
+    queryParams.set("user", JSON.stringify(userData))
+    queryParams.set("guilds", JSON.stringify(managedGuilds))
+
+    // Redirect to the dashboard with the data in the URL
+    return NextResponse.redirect(new URL(`/dashboard/servers?${queryParams.toString()}`, url.origin))
   } catch (error) {
-    console.error("OAuth callback error:", error)
-    return NextResponse.redirect(new URL("/?error=server_error", req.url))
+    console.error("Auth callback error:", error)
+    return NextResponse.redirect(new URL("/dashboard/login?error=server_error", url.origin))
   }
 }
 
