@@ -561,14 +561,7 @@ export async function POST(req) {
           }
 
           // Store the warning in the database
-          await addWarning(
-            guildId,
-            userId,
-            moderator.id,
-            reason,
-            anonymous,
-            dmSent
-          )
+          await addWarning(guildId, userId, moderator.id, reason, anonymous, dmSent)
 
           // Send log if logging is enabled
           const logEmbed = createLogEmbed("warn", moderator, user, reason, {
@@ -873,10 +866,12 @@ ${webhookUrl}
           }
 
           // Format warnings
-          const warningsList = warnings.map((warning, index) => {
-            const date = new Date(warning.createdAt).toLocaleString()
-            return `**${index + 1}.** ID: \`${warning.id}\`\n**Reason:** ${warning.reason}\n**Date:** ${date}\n**Moderator:** ${warning.anonymous ? 'Anonymous' : `<@${warning.moderatorId}>`}\n`
-          }).join('\n')
+          const warningsList = warnings
+            .map((warning, index) => {
+              const date = new Date(warning.createdAt).toLocaleString()
+              return `**${index + 1}.** ID: \`${warning.id}\`\n**Reason:** ${warning.reason}\n**Date:** ${date}\n**Moderator:** ${warning.anonymous ? "Anonymous" : `<@${warning.moderatorId}>`}\n`
+            })
+            .join("\n")
 
           return NextResponse.json({
             type: CHANNEL_MESSAGE_WITH_SOURCE,
@@ -989,7 +984,6 @@ ${webhookUrl}
           // Check if the channel is a text channel
           try {
             const channelResponse = await discordRequest(`channels/${starboardChannelId}`, {
-                          let channelResponse = await discordRequest(`channels/${starboardChannelId}`, {
               method: "GET",
             })
 
@@ -1004,7 +998,7 @@ ${webhookUrl}
             }
 
             // Set up the starboard
-            let success = await setStarboardConfig(guildId, starboardChannelId, threshold, emoji)
+            const success = await setStarboardConfig(guildId, starboardChannelId, threshold, emoji)
 
             if (!success) {
               return NextResponse.json({
@@ -1076,8 +1070,9 @@ ${webhookUrl}
       type: CHANNEL_MESSAGE_WITH_SOURCE,
       data: { content: "Unhandled interaction type." },
     })
-  } catch (error) 
+  } catch (error) {
     console.error("Error processing interaction:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
 }
 
