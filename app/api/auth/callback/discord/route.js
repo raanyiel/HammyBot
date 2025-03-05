@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
 
+// Mark this route as dynamic to prevent static generation
+export const dynamic = "force-dynamic"
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
@@ -24,8 +27,7 @@ export async function GET(request) {
         grant_type: "authorization_code",
         code,
         redirect_uri:
-          process.env.NEXT_PUBLIC_REDIRECT_URI ||
-          `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/auth/callback/discord`,
+          process.env.NEXT_PUBLIC_REDIRECT_URI || `${new URL(request.url).origin}/api/auth/callback/discord`,
       }),
     })
 
@@ -105,7 +107,7 @@ export async function GET(request) {
     queryParams.set("guilds", JSON.stringify(managedGuilds))
 
     // Redirect to the dashboard with the data in the URL
-    return NextResponse.redirect(new URL(`/dashboard/servers?${queryParams.toString()}`, request.url))
+    return NextResponse.redirect(new URL(`/dashboard/servers?${queryParams.toString()}`, new URL(request.url).origin))
   } catch (error) {
     console.error("Auth callback error:", error)
     return NextResponse.redirect(new URL("/dashboard/login?error=server_error", request.url))
