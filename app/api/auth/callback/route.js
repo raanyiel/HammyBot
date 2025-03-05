@@ -16,3 +16,4 @@ export async function GET(request) {
   return NextResponse.redirect(redirectUrl)
 }
 
+
