@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function ServersPage() {
   const router = useRouter()
@@ -115,6 +116,12 @@ export default function ServersPage() {
                 </Button>
               </div>
             )}
+          </div>
+
+          <div className="mt-8">
+            <Link href="/">
+              <Button variant="outline">Return to Home</Button>
+            </Link>
           </div>
         </>
       )}

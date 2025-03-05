@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import Link from "next/link"
 
 export default function ServerDashboard({ params }) {
   const { id } = params
   const [server, setServer] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("general")
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     // Fetch server data
@@ -35,9 +36,27 @@ export default function ServerDashboard({ params }) {
     )
   }
 
+  if (error) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p>{error}</p>
+        </div>
+        <Link href="/dashboard/servers">
+          <Button>Back to Servers</Button>
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">{server.name} Dashboard</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">{server.name} Dashboard</h1>
+        <Link href="/dashboard/servers">
+          <Button variant="outline">Back to Servers</Button>
+        </Link>
+      </div>
 
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="mb-4">
