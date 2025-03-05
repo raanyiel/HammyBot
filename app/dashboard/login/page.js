@@ -1,43 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { useSearchParams } from "next/navigation"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
-  const searchParams = useSearchParams()
-  const error = searchParams.get("error")
-
-  // Check if we're already authenticated
-  useEffect(() => {
-    // In a real app, you would check for an auth cookie or token
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/auth/check")
-        if (response.ok) {
-          // If authenticated, redirect to dashboard
-          window.location.href = "/dashboard"
-        }
-      } catch (error) {
-        // If there's an error, we'll stay on the login page
-        console.error("Auth check error:", error)
-      }
-    }
-
-    checkAuth()
-  }, [])
 
   const handleLogin = () => {
     setIsLoading(true)
 
-    // Get the current URL to use as the redirect URI base
-    const baseUrl = window.location.origin
-
-    // Construct the Discord OAuth URL
+    // Get the Discord OAuth URL parameters
     const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
-    const redirectUri = process.env.NEXT_PUBLIC_REDIRECT_URI || `${baseUrl}/api/auth/callback/discord`
+    const redirectUri = process.env.NEXT_PUBLIC_REDIRECT_URI
 
     // Define the scopes we need
     const scopes = ["identify", "guilds"].join("%20")
@@ -55,19 +30,7 @@ export default function LoginPage() {
             Log in with your Discord account to manage your servers
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col items-center">
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error === "missing_code" && "Authorization code missing. Please try again."}
-              {error === "token_exchange" && "Failed to exchange token. Please try again."}
-              {error === "user_fetch" && "Failed to fetch user data. Please try again."}
-              {error === "guilds_fetch" && "Failed to fetch guilds data. Please try again."}
-              {error === "server_error" && "An unexpected error occurred. Please try again."}
-              {!["missing_code", "token_exchange", "user_fetch", "guilds_fetch", "server_error"].includes(error) &&
-                "An error occurred during login. Please try again."}
-            </div>
-          )}
-
+        <CardContent className="flex justify-center">
           <Button
             onClick={handleLogin}
             disabled={isLoading}

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -69,28 +68,42 @@ export async function GET(request) {
     const guildsData = await guildsResponse.json()
     console.log(`Fetched ${guildsData.length} guilds`)
 
-    // Store the auth data in a cookie
-    const authData = {
-      user: userData,
-      guilds: guildsData,
-      token: tokenData.access_token,
-      expires_at: Date.now() + tokenData.expires_in * 1000,
-    }
-
-    // Set the cookie
-    console.log("Setting auth cookie...")
-    cookies().set({
-      name: "discord_auth",
-      value: JSON.stringify(authData),
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: tokenData.expires_in,
-      path: "/",
+    // Get the bot's guilds
+    console.log("Fetching bot guilds...")
+    const botGuildsResponse = await fetch("https://discord.com/api/v10/users/@me/guilds", {
+      headers: {
+        Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+      },
     })
 
-    console.log("Auth cookie set, redirecting to dashboard")
-    // Redirect to the dashboard
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    let botGuilds = []
+    if (botGuildsResponse.ok) {
+      botGuilds = await botGuildsResponse.json()
+      console.log(`Bot is in ${botGuilds.length} guilds`)
+    } else {
+      console.error("Failed to fetch bot guilds:", await botGuildsResponse.text())
+    }
+
+    // Filter guilds where the user has admin permissions
+    const adminGuilds = guildsData.filter((guild) => (guild.permissions & 0x8) === 0x8 || guild.owner)
+
+    console.log(`User has admin permissions in ${adminGuilds.length} guilds`)
+
+    // Get the guild IDs where the bot is installed
+    const botGuildIds = new Set(botGuilds.map((guild) => guild.id))
+
+    // Filter admin guilds to only include those where the bot is installed
+    const managedGuilds = adminGuilds.filter((guild) => botGuildIds.has(guild.id))
+
+    console.log(`User can manage ${managedGuilds.length} guilds with the bot installed`)
+
+    // Create a query string with the data
+    const queryParams = new URLSearchParams()
+    queryParams.set("user", JSON.stringify(userData))
+    queryParams.set("guilds", JSON.stringify(managedGuilds))
+
+    // Redirect to the dashboard with the data in the URL
+    return NextResponse.redirect(new URL(`/dashboard/servers?${queryParams.toString()}`, request.url))
   } catch (error) {
     console.error("Auth callback error:", error)
     return NextResponse.redirect(new URL("/dashboard/login?error=server_error", request.url))
