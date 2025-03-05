@@ -1,3 +1,5 @@
+import "./globals.css"
+
 export const metadata = {
   title: "Discord Role Bot",
   description: "A Discord bot for managing roles",
