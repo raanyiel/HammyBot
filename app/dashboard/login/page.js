@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -12,7 +13,9 @@ export default function LoginPage() {
 
     // Get the Discord OAuth URL parameters
     const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
-    const redirectUri = process.env.NEXT_PUBLIC_REDIRECT_URI
+    const redirectUri =
+      process.env.NEXT_PUBLIC_REDIRECT_URI ||
+      `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/auth/callback/discord`
 
     // Define the scopes we need
     const scopes = ["identify", "guilds"].join("%20")
@@ -30,7 +33,7 @@ export default function LoginPage() {
             Log in with your Discord account to manage your servers
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex justify-center">
+        <CardContent className="flex flex-col items-center gap-4">
           <Button
             onClick={handleLogin}
             disabled={isLoading}
@@ -50,6 +53,10 @@ export default function LoginPage() {
               </>
             )}
           </Button>
+
+          <Link href="/" className="text-sm text-gray-500 hover:text-gray-700">
+            Return to Home
+          </Link>
         </CardContent>
         <CardFooter className="flex justify-center text-sm text-gray-500">
           You'll be redirected to Discord to authorize the application

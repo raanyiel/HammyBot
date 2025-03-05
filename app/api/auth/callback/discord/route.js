@@ -23,7 +23,9 @@ export async function GET(request) {
         client_secret: process.env.DISCORD_CLIENT_SECRET,
         grant_type: "authorization_code",
         code,
-        redirect_uri: process.env.NEXT_PUBLIC_REDIRECT_URI,
+        redirect_uri:
+          process.env.NEXT_PUBLIC_REDIRECT_URI ||
+          `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/auth/callback/discord`,
       }),
     })
 
