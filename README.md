@@ -16,6 +16,8 @@ A powerful Discord moderation bot built with Next.js and deployed on Vercel. Ham
 - **Verification System**: Create customizable verification embeds with buttons
 - **GitHub Integration**: Connect GitHub repositories to Discord channels for notifications
 - **Automatic Command Registration**: Commands are registered automatically on deployment
+- **Warning System**: Track and manage user warnings with a persistent database
+- **Starboard**: Highlight popular messages in a dedicated channel
 
 ## Setup Guide
 
@@ -87,6 +89,21 @@ A powerful Discord moderation bot built with Next.js and deployed on Vercel. Ham
   - Set `anonymous` to `false` to identify yourself as the moderator
 - `/kick @user [reason]` - Kicks a user from the server
 - `/ban @user [reason] [days]` - Bans a user and optionally deletes their messages (0-7 days)
+
+### Warning System
+
+- `/warn @user [reason] [anonymous]` - Warns a user with a specified reason
+  - Set `anonymous` to `false` to identify yourself as the moderator
+- `/warnings @user` - View all warnings for a user
+- `/clearwarnings @user [warning_id]` - Clear all warnings for a user or a specific warning by ID
+
+### Starboard
+
+- `/starboard setup #channel [threshold] [emoji]` - Set up the starboard in a specific channel
+  - `threshold` - Number of reactions needed to appear on the starboard (default: 3)
+  - `emoji` - The emoji to use for stars (default: ⭐)
+- `/starboard disable` - Disable the starboard for this server
+- `/starboard status` - Check the current starboard status and configuration
 
 ### Logging
 

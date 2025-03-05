@@ -122,6 +122,64 @@ export default function Home() {
             background: "#f3f4f6",
             padding: "1rem",
             borderRadius: "0.5rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Utility Commands</h3>
+
+          <p style={{ fontFamily: "monospace" }}>/verify @role [title] [description] [button_text] [color]</p>
+          <p style={{ color: "#4b5563" }}>Create a verification embed with a button for users to verify themselves</p>
+        </div>
+
+        <div
+          style={{
+            background: "#f3f4f6",
+            padding: "1rem",
+            borderRadius: "0.5rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Warning System</h3>
+
+          <p style={{ fontFamily: "monospace" }}>/warn @user [reason] [anonymous]</p>
+          <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>
+            Warns a user with a specified reason. Set anonymous to false to identify yourself.
+          </p>
+
+          <p style={{ fontFamily: "monospace" }}>/warnings @user</p>
+          <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>View all warnings for a user</p>
+
+          <p style={{ fontFamily: "monospace" }}>/clearwarnings @user [warning_id]</p>
+          <p style={{ color: "#4b5563" }}>Clear all warnings for a user or a specific warning by ID</p>
+        </div>
+
+        <div
+          style={{
+            background: "#f3f4f6",
+            padding: "1rem",
+            borderRadius: "0.5rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Starboard</h3>
+
+          <p style={{ fontFamily: "monospace" }}>/starboard setup #channel [threshold] [emoji]</p>
+          <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>
+            Set up the starboard in a specific channel with optional threshold and emoji
+          </p>
+
+          <p style={{ fontFamily: "monospace" }}>/starboard disable</p>
+          <p style={{ color: "#4b5563", marginBottom: "0.5rem" }}>Disable the starboard for this server</p>
+
+          <p style={{ fontFamily: "monospace" }}>/starboard status</p>
+          <p style={{ color: "#4b5563" }}>Check the current starboard status and configuration</p>
+        </div>
+
+        <div
+          style={{
+            background: "#f3f4f6",
+            padding: "1rem",
+            borderRadius: "0.5rem",
           }}
         >
           <h3 style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Utility Commands</h3>

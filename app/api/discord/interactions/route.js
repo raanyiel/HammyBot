@@ -10,7 +10,12 @@ import {
   setGithubWebhook,
   removeGithubWebhook,
   listGithubWebhooks,
+  addWarning,
+  getWarnings,
+  clearWarnings,
+  clearWarning,
 } from "../../../../lib/discord"
+import { setStarboardConfig, getStarboardConfig, disableStarboard } from "../../../../lib/starboard"
 
 // Interaction type constants
 const PING = 1
@@ -521,15 +526,11 @@ export async function POST(req) {
           }
 
           // Create the warning message
-          let warningMessage = `**Warning from ${guildName}**
-
-`
+          let warningMessage = `**Warning from ${guildName}**\n\n`
 
           // Add moderator info if not anonymous
           if (!anonymous) {
-            warningMessage += `**Moderator:** ${body.member.user.username}
-
-`
+            warningMessage += `**Moderator:** ${body.member.user.username}\n\n`
           }
 
           warningMessage += `**Reason:** ${reason}`
@@ -559,13 +560,23 @@ export async function POST(req) {
             // Continue even if DM fails
           }
 
+          // Store the warning in the database
+          await addWarning(
+            guildId,
+            userId,
+            moderator.id,
+            reason,
+            anonymous,
+            dmSent
+          )
+
           // Send log if logging is enabled
           const logEmbed = createLogEmbed("warn", moderator, user, reason, {
             "DM Sent": dmSent ? "Yes" : "No (User may have DMs disabled)",
             Anonymous: anonymous ? "Yes" : "No",
           })
 
-          sendLogMessage(guildId, logEmbed)
+          await sendLogMessage(guildId, logEmbed)
 
           // Send confirmation in the channel
           return NextResponse.json({
@@ -830,6 +841,226 @@ ${webhookUrl}
         }
       }
 
+      // Handle warnings command
+      else if (name === "warnings") {
+        const userId = options.find((opt) => opt.name === "user")?.value
+
+        if (!userId) {
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "Please specify a user to view warnings for." },
+          })
+        }
+
+        try {
+          // Get user information
+          const userResponse = await discordRequest(`users/${userId}`, {
+            method: "GET",
+          })
+          const user = await userResponse.json()
+
+          // Get warnings for the user
+          const warnings = await getWarnings(guildId, userId)
+
+          if (warnings.length === 0) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `<@${userId}> has no warnings.`,
+                allowed_mentions: { parse: [] }, // Prevent user ping
+              },
+            })
+          }
+
+          // Format warnings
+          const warningsList = warnings.map((warning, index) => {
+            const date = new Date(warning.createdAt).toLocaleString()
+            return `**${index + 1}.** ID: \`${warning.id}\`\n**Reason:** ${warning.reason}\n**Date:** ${date}\n**Moderator:** ${warning.anonymous ? 'Anonymous' : `<@${warning.moderatorId}>`}\n`
+          }).join('\n')
+
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              embeds: [
+                {
+                  title: `Warnings for ${user.username}`,
+                  description: `<@${userId}> has ${warnings.length} warning(s):\n\n${warningsList}`,
+                  color: 0xf8a532, // Orange
+                  footer: {
+                    text: `User ID: ${userId}`,
+                  },
+                  timestamp: new Date().toISOString(),
+                },
+              ],
+              allowed_mentions: { parse: [] }, // Prevent user ping
+            },
+          })
+        } catch (error) {
+          console.error("Error getting warnings:", error)
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "Failed to get warnings. Please try again later." },
+          })
+        }
+      }
+
+      // Handle clearwarnings command
+      else if (name === "clearwarnings") {
+        const userId = options.find((opt) => opt.name === "user")?.value
+        const warningId = options.find((opt) => opt.name === "warning_id")?.value
+
+        if (!userId) {
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "Please specify a user to clear warnings for." },
+          })
+        }
+
+        try {
+          // Get user information
+          const userResponse = await discordRequest(`users/${userId}`, {
+            method: "GET",
+          })
+          const user = await userResponse.json()
+
+          let count = 0
+          let message = ""
+
+          if (warningId) {
+            // Clear a specific warning
+            const warning = await clearWarning(warningId)
+
+            if (warning) {
+              count = 1
+              message = `Cleared warning with ID \`${warningId}\` for <@${userId}>.`
+            } else {
+              message = `No warning found with ID \`${warningId}\` for <@${userId}>.`
+            }
+          } else {
+            // Clear all warnings
+            count = await clearWarnings(guildId, userId)
+            message = `Cleared ${count} warning(s) for <@${userId}>.`
+          }
+
+          // Send log if logging is enabled
+          const logEmbed = createLogEmbed("warn clear", moderator, user, null, {
+            "Warnings Cleared": count,
+            "Specific Warning": warningId || "All",
+          })
+
+          await sendLogMessage(guildId, logEmbed)
+
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: message,
+              allowed_mentions: { parse: [] }, // Prevent user ping
+            },
+          })
+        } catch (error) {
+          console.error("Error clearing warnings:", error)
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "Failed to clear warnings. Please try again later." },
+          })
+        }
+      }
+
+      // Handle starboard command
+      else if (name === "starboard") {
+        const subCommand = options[0].name
+
+        if (subCommand === "setup") {
+          const channelOption = options[0].options.find((opt) => opt.name === "channel")
+          const thresholdOption = options[0].options.find((opt) => opt.name === "threshold")
+          const emojiOption = options[0].options.find((opt) => opt.name === "emoji")
+
+          if (!channelOption) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: { content: "Please specify a channel for the starboard." },
+            })
+          }
+
+          const starboardChannelId = channelOption.value
+          const threshold = thresholdOption?.value || 3
+          const emoji = emojiOption?.value || "⭐"
+
+          // Check if the channel is a text channel
+          try {
+            const channelResponse = await discordRequest(`channels/${starboardChannelId}`, {
+                          let channelResponse = await discordRequest(`channels/${starboardChannelId}`, {
+              method: "GET",
+            })
+
+            const channel = await channelResponse.json()
+
+            if (channel.type !== 0) {
+              // 0 is text channel
+              return NextResponse.json({
+                type: CHANNEL_MESSAGE_WITH_SOURCE,
+                data: { content: "The starboard channel must be a text channel." },
+              })
+            }
+
+            // Set up the starboard
+            let success = await setStarboardConfig(guildId, starboardChannelId, threshold, emoji)
+
+            if (!success) {
+              return NextResponse.json({
+                type: CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                  content: "Failed to set up starboard. Please try again later.",
+                  flags: 64,
+                },
+              })
+            }
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `Starboard has been set up in <#${starboardChannelId}>!\n\nMessages with ${threshold} or more ${emoji} reactions will be posted there.`,
+                flags: 64, // Ephemeral flag - only visible to the command user
+              },
+            })
+          } catch (error) {
+            console.error("Error setting up starboard:", error)
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to set up starboard. Please check bot permissions.",
+                flags: 64,
+              },
+            })
+          }
+        } else if (subCommand === "disable") {
+          // Disable starboard
+          const wasEnabled = await disableStarboard(guildId)
+
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: wasEnabled ? "Starboard has been disabled." : "Starboard was not enabled for this server.",
+              flags: 64,
+            },
+          })
+        } else if (subCommand === "status") {
+          // Check starboard status
+          const config = await getStarboardConfig(guildId)
+
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: config
+                ? `Starboard is currently enabled in <#${config.channelId}>.\nThreshold: ${config.threshold} ${config.emoji} reactions`
+                : "Starboard is currently disabled for this server.",
+              flags: 64,
+            },
+          })
+        }
+      }
+
       // Default response for unhandled commands
       else {
         return NextResponse.json({
@@ -845,9 +1076,8 @@ ${webhookUrl}
       type: CHANNEL_MESSAGE_WITH_SOURCE,
       data: { content: "Unhandled interaction type." },
     })
-  } catch (error) {
+  } catch (error) 
     console.error("Error processing interaction:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
 }
 

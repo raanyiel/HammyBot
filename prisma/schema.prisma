@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model LoggingChannel {
+  id        String   @id @default(cuid())
+  guildId   String   @unique
+  channelId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationRole {
+  id        String   @id @default(cuid())
+  guildId   String   @unique
+  roleId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GithubWebhook {
+  id          String   @id @default(cuid())
+  guildId     String
+  repository  String
+  channelId   String
+  events      String   @default("all")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([guildId, repository])
+}
+
+model Warning {
+  id           String   @id @default(cuid())
+  guildId      String
+  userId       String
+  moderatorId  String
+  reason       String
+  anonymous    Boolean  @default(true)
+  dmSent       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([guildId, userId])
+}
+
+model StarboardMessage {
+  id              String   @id @default(cuid())
+  guildId         String
+  channelId       String
+  messageId       String
+  authorId        String
+  starboardMessageId String?
+  content         String?
+  stars           Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([guildId, messageId])
+  @@index([guildId, stars])
+}
+
+model StarboardConfig {
+  id              String   @id @default(cuid())
+  guildId         String   @unique
+  channelId       String
+  threshold       Int      @default(3)
+  emoji           String   @default("⭐")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
