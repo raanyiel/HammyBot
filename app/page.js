@@ -1,30 +1,48 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 export default function Dashboard() {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const [user, setUser] = useState(null)
   const [servers, setServers] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // Check if user just logged in
-  const loginSuccess = searchParams.get("login_success")
-
   useEffect(() => {
-    // In a real app, you would fetch the user's servers from your API
-    // For now, we'll just use dummy data
-    setTimeout(() => {
-      setServers([
-        { id: "123456789", name: "Test Server 1", icon: null },
-        { id: "987654321", name: "Test Server 2", icon: null },
-      ])
-      setLoading(false)
-    }, 1000)
-  }, [])
+    // Fetch the user's data and servers
+    const fetchUserData = async () => {
+      try {
+        // First, check if we're authenticated
+        const authResponse = await fetch("/api/auth/check")
+        if (!authResponse.ok) {
+          // If not authenticated, redirect to login
+          router.push("/dashboard/login")
+          return
+        }
+
+        const authData = await authResponse.json()
+        setUser(authData.user)
+
+        // Fetch the user's servers
+        const serversResponse = await fetch("/api/discord/servers")
+        if (serversResponse.ok) {
+          const serversData = await serversResponse.json()
+          setServers(serversData)
+        } else {
+          console.error("Failed to fetch servers")
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUserData()
+  }, [router])
 
   const handleServerClick = (serverId) => {
     router.push(`/dashboard/server/${serverId}`)
@@ -40,13 +58,22 @@ export default function Dashboard() {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Your Servers</h1>
-
-      {loginSuccess && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          Successfully logged in with Discord!
+      {user && (
+        <div className="flex items-center mb-6">
+          <img
+            src={
+              user.avatar
+                ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
+                : "https://cdn.discordapp.com/embed/avatars/0.png"
+            }
+            alt={user.username}
+            className="w-10 h-10 rounded-full mr-3"
+          />
+          <h1 className="text-3xl font-bold">Welcome, {user.username}</h1>
         </div>
       )}
+
+      <h2 className="text-2xl font-semibold mb-4">Your Servers</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {servers.map((server) => (
@@ -67,9 +94,7 @@ export default function Dashboard() {
             <Button
               onClick={() =>
                 window.open(
-                  "https://discord.com/api/oauth2/authorize?client_id=" +
-                    process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID +
-                    "&permissions=8&scope=bot%20applications.commands",
+                  `https://discord.com/api/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}&permissions=8&scope=bot%20applications.commands`,
                   "_blank",
                 )
               }

@@ -1,45 +1,26 @@
 import { NextResponse } from "next/server"
-import { registerCommands } from "./lib/discord"
-import { ALL_COMMANDS } from "./lib/commands"
-import { processPendingGithubEvents } from "./lib/github"
 
-// This variable helps us track if commands have been registered in this deployment
-let commandsRegistered = false
-let pendingEventsProcessed = false
+// This function can be marked `async` if using `await` inside
+export function middleware(request) {
+  // Get the pathname of the request
+  const path = request.nextUrl.pathname
 
-export async function middleware(request) {
-  // Only run this once per deployment
-  if (!commandsRegistered && process.env.NODE_ENV === "production") {
-    commandsRegistered = true
+  // Check if the path is for the dashboard (excluding login and callback)
+  if (path.startsWith("/dashboard") && !path.startsWith("/dashboard/login") && !path.includes("/api/auth/callback")) {
+    // Check if the user is authenticated by looking for the auth cookie
+    const authCookie = request.cookies.get("discord_auth")
 
-    try {
-      console.log("Automatically registering commands on deployment...")
-      await registerCommands(ALL_COMMANDS)
-      console.log("Commands registered successfully!")
-    } catch (error) {
-      console.error("Failed to register commands on startup:", error)
-    }
-  }
-
-  // Process any pending GitHub events once per deployment
-  if (!pendingEventsProcessed && process.env.NODE_ENV === "production") {
-    pendingEventsProcessed = true
-
-    try {
-      // Process with a slight delay to ensure the app is fully initialized
-      setTimeout(async () => {
-        await processPendingGithubEvents()
-      }, 5000)
-    } catch (error) {
-      console.error("Failed to process pending GitHub events:", error)
+    // If there's no auth cookie, redirect to the login page
+    if (!authCookie) {
+      return NextResponse.redirect(new URL("/dashboard/login", request.url))
     }
   }
 
   return NextResponse.next()
 }
 
-// Configure the middleware to run only on specific paths
+// See "Matching Paths" below to learn more
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: ["/dashboard/:path*"],
 }
 

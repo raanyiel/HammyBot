@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -20,7 +21,8 @@ export async function GET(request) {
         client_secret: process.env.DISCORD_CLIENT_SECRET,
         grant_type: "authorization_code",
         code,
-        redirect_uri: `${new URL(request.url).origin}/api/auth/callback/discord`,
+        redirect_uri:
+          process.env.NEXT_PUBLIC_REDIRECT_URI || `${new URL(request.url).origin}/api/auth/callback/discord`,
       }),
     })
 
@@ -58,13 +60,26 @@ export async function GET(request) {
 
     const guildsData = await guildsResponse.json()
 
-    // In a real application, you would:
-    // 1. Store the token in a secure HTTP-only cookie or session
-    // 2. Store user data in a database or session
-    // 3. Redirect to the dashboard
+    // Store the auth data in a cookie
+    const authData = {
+      user: userData,
+      guilds: guildsData,
+      token: tokenData.access_token,
+      expires_at: Date.now() + tokenData.expires_in * 1000,
+    }
 
-    // For now, we'll just redirect to the dashboard with a temporary query param
-    return NextResponse.redirect(new URL(`/dashboard?login_success=true`, request.url))
+    // Set the cookie
+    cookies().set({
+      name: "discord_auth",
+      value: JSON.stringify(authData),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: tokenData.expires_in,
+      path: "/",
+    })
+
+    // Redirect to the dashboard
+    return NextResponse.redirect(new URL("/dashboard", request.url))
   } catch (error) {
     console.error("Auth callback error:", error)
     return NextResponse.redirect(new URL("/dashboard/login?error=server_error", request.url))
