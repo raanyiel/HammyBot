@@ -267,7 +267,17 @@ export async function POST(req) {
             }
 
             // Set the logging channel
-            setLoggingChannel(guildId, loggingChannelId)
+            const success = await setLoggingChannel(guildId, loggingChannelId)
+
+            if (!success) {
+              return NextResponse.json({
+                type: CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                  content: "Failed to set logging channel. Please try again later.",
+                  flags: 64,
+                },
+              })
+            }
 
             return NextResponse.json({
               type: CHANNEL_MESSAGE_WITH_SOURCE,
@@ -289,7 +299,7 @@ export async function POST(req) {
           }
         } else if (subCommand === "disable") {
           // Disable logging
-          const wasEnabled = disableLogging(guildId)
+          const wasEnabled = await disableLogging(guildId)
 
           return NextResponse.json({
             type: CHANNEL_MESSAGE_WITH_SOURCE,
@@ -300,7 +310,7 @@ export async function POST(req) {
           })
         } else if (subCommand === "status") {
           // Check logging status
-          const loggingChannelId = getLoggingChannel(guildId)
+          const loggingChannelId = await getLoggingChannel(guildId)
 
           return NextResponse.json({
             type: CHANNEL_MESSAGE_WITH_SOURCE,
@@ -751,7 +761,17 @@ export async function POST(req) {
           }
 
           // Set up the webhook
-          setGithubWebhook(guildId, repository, channelId, events)
+          const success = await setGithubWebhook(guildId, repository, channelId, events)
+
+          if (!success) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to set up GitHub webhook. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
 
           // Generate the webhook URL
           const webhookUrl = `${req.headers.get("origin") || "https://your-bot-url.vercel.app"}/api/github/webhook`
@@ -778,7 +798,7 @@ ${webhookUrl}
           })
         } else if (subCommand === "list") {
           // List all webhooks
-          const webhooks = listGithubWebhooks(guildId)
+          const webhooks = await listGithubWebhooks(guildId)
 
           if (webhooks.length === 0) {
             return NextResponse.json({
@@ -797,7 +817,8 @@ ${webhookUrl}
           return NextResponse.json({
             type: CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content: `**GitHub Webhooks for this server:**\n${webhookList}`,
+              content: `**GitHub Webhooks for this server:**
+${webhookList}`,
               flags: 64,
             },
           })
@@ -812,7 +833,7 @@ ${webhookUrl}
           }
 
           const repository = repositoryOption.value
-          const removed = removeGithubWebhook(guildId, repository)
+          const removed = await removeGithubWebhook(guildId, repository)
 
           if (!removed) {
             return NextResponse.json({

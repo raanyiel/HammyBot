@@ -42,7 +42,7 @@ export async function POST(req) {
     }
 
     // Find the webhook configuration for this repository
-    const webhookConfig = findGithubWebhook(repository)
+    const webhookConfig = await findGithubWebhook(repository)
     if (!webhookConfig) {
       console.log(`No webhook configuration found for repository: ${repository}`)
       return NextResponse.json({ message: "No webhook configuration found for this repository" })
