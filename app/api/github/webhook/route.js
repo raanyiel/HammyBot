@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { findGithubWebhook, createGithubEventEmbed, discordRequest } from "../../../../lib/discord"
 import crypto from "crypto"
+import prisma from "../../../../lib/db"
 
 // This endpoint receives webhook events from GitHub
 export async function POST(req) {
@@ -55,18 +56,38 @@ export async function POST(req) {
       return NextResponse.json({ message: "Event type not configured for this repository" })
     }
 
-    // Create an embed for the event
-    const embed = createGithubEventEmbed(event, body)
+    try {
+      // Try to create an embed for the event
+      const embed = createGithubEventEmbed(event, body)
 
-    // Send the embed to the configured channel
-    await discordRequest(`channels/${channelId}/messages`, {
-      method: "POST",
-      body: JSON.stringify({
-        embeds: [embed],
-      }),
-    })
+      // Try to send the embed to the configured channel
+      await discordRequest(`channels/${channelId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({
+          embeds: [embed],
+        }),
+      })
 
-    return NextResponse.json({ success: true })
+      return NextResponse.json({ success: true })
+    } catch (error) {
+      console.error("Error sending Discord message, storing event for later processing:", error)
+
+      // If we can't send the message (likely due to a deployment/restart),
+      // store the event in the database for later processing
+      await prisma.pendingGithubEvent.create({
+        data: {
+          repository,
+          eventType: event,
+          payload: JSON.stringify(body),
+          processed: false,
+        },
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: "Event stored for later processing",
+      })
+    }
   } catch (error) {
     console.error("Error processing GitHub webhook:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

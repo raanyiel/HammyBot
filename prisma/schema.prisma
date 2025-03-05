@@ -52,16 +52,16 @@ model Warning {
 }
 
 model StarboardMessage {
-  id              String   @id @default(cuid())
-  guildId         String
-  channelId       String
-  messageId       String
-  authorId        String
+  id                String   @id @default(cuid())
+  guildId           String
+  channelId         String
+  messageId         String
+  authorId          String
   starboardMessageId String?
-  content         String?
-  stars           Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  content           String?
+  stars             Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@unique([guildId, messageId])
   @@index([guildId, stars])
@@ -75,5 +75,17 @@ model StarboardConfig {
   emoji           String   @default("⭐")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// New model for storing GitHub events during deployments
+model PendingGithubEvent {
+  id          String   @id @default(cuid())
+  repository  String
+  eventType   String
+  payload     String   @db.Text  // JSON payload stored as text
+  processed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  @@index([repository, processed])
 }
 
