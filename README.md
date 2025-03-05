@@ -6,6 +6,8 @@ A powerful Discord moderation bot built with Next.js and deployed on Vercel. Ham
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)
 ![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
 ![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 
 ## Features
 
@@ -19,6 +21,15 @@ A powerful Discord moderation bot built with Next.js and deployed on Vercel. Ham
 - **Warning System**: Track and manage user warnings with a persistent database
 - **Starboard**: Highlight popular messages in a dedicated channel
 
+## Database Features
+
+The bot now includes persistent storage with PostgreSQL and Prisma, offering:
+
+- **Warning History**: Store and retrieve user warnings, including reason, moderator, and timestamp
+- **Starboard Configuration**: Configure and persist starboard settings like threshold and emoji
+- **Starboard Messages**: Track starred messages and their starboard counterparts
+- **Configuration Storage**: Store server-specific settings for logging channels and GitHub webhooks
+
 ## Setup Guide
 
 ### Prerequisites
@@ -28,6 +39,7 @@ A powerful Discord moderation bot built with Next.js and deployed on Vercel. Ham
 - A [Vercel](https://vercel.com/) account
 - Node.js and npm installed (for local development)
 - A GitHub account (for repository webhook integration)
+- A PostgreSQL database (recommended: Vercel Postgres)
 
 ### Step 1: Create a Discord Application
 
@@ -55,7 +67,17 @@ A powerful Discord moderation bot built with Next.js and deployed on Vercel. Ham
    - `View Channels`
 6. Copy the generated URL and open it in your browser to invite the bot to your server
 
-### Step 3: Deploy to Vercel
+### Step 3: Set Up Database
+
+1. Create a PostgreSQL database
+   - **Recommended**: Use [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres) for easy integration
+   - Alternatively, use any PostgreSQL hosting service (ElephantSQL, Heroku Postgres, etc.)
+2. Get your database connection string, it should look like:
+   \`\`\`
+   postgresql://username:password@hostname:port/database
+   \`\`\`
+
+### Step 4: Deploy to Vercel
 
 1. Fork or clone this repository
 2. Deploy to Vercel using the Vercel CLI or the Vercel GitHub integration
@@ -64,9 +86,10 @@ A powerful Discord moderation bot built with Next.js and deployed on Vercel. Ham
    - `DISCORD_CLIENT_ID`: Your application ID
    - `DISCORD_PUBLIC_KEY`: Your public key (found in the "General Information" tab)
    - `GITHUB_WEBHOOK_SECRET`: A secure random string for GitHub webhook verification
+   - `DATABASE_URL`: Your PostgreSQL connection string
 4. Deploy the project
 
-### Step 4: Set Up Interactions Endpoint URL
+### Step 5: Set Up Interactions Endpoint URL
 
 1. Go back to the Discord Developer Portal
 2. In your application, go to the "General Information" tab
@@ -165,8 +188,13 @@ The bot requires the following permissions to function properly:
    DISCORD_CLIENT_ID=your_client_id
    DISCORD_PUBLIC_KEY=your_public_key
    GITHUB_WEBHOOK_SECRET=your_webhook_secret
+   DATABASE_URL=postgresql://username:password@hostname:port/database
    \`\`\`
-4. Run the development server:
+4. Set up the database schema:
+   \`\`\`bash
+   npx prisma db push
+   \`\`\`
+5. Run the development server:
    \`\`\`bash
    npm run dev
    \`\`\`
@@ -198,17 +226,24 @@ The bot requires the following permissions to function properly:
 - Check that the bot has permission to send messages in the webhook channel
 - Review GitHub webhook delivery logs for errors
 
+### Database Issues
+
+- Verify your DATABASE_URL is correct and properly formatted
+- Make sure your database is accessible from Vercel
+- Check for Prisma errors in the Vercel logs
+- The database schema will be automatically created on deployment
+
 ## Technical Details
 
 - Built with Next.js App Router
 - Uses Discord Interactions API
 - GitHub Webhook integration with signature verification
 - Deployed on Vercel
-- In-memory storage for logging settings and webhooks (resets on deployment)
+- PostgreSQL database with Prisma ORM
+- Persistent storage for moderation actions and settings
 
 ## Future Improvements
 
-- Database integration for persistent storage
 - Custom prefix commands
 - Auto-moderation features
 - Reaction roles
