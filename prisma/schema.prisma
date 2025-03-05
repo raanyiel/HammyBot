@@ -89,3 +89,17 @@ model PendingGithubEvent {
   @@index([repository, processed])
 }
 
+// Add User model to your schema
+
+model User {
+  id            String   @id
+  username      String
+  avatar        String?
+  accessToken   String
+  refreshToken  String
+  tokenExpires  DateTime
+  lastLogin     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+

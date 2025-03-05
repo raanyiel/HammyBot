@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server"
+import { PrismaClient } from "@prisma/client"
+
+const prisma = new PrismaClient()
 
 export async function GET(req) {
   try {
@@ -66,9 +69,36 @@ export async function GET(req) {
 
     const guildsData = await guildsResponse.json()
 
-    // Store the user session information (in a real app, you'd use a proper session system)
-    // For now, we'll redirect to the dashboard with a success message
-    return NextResponse.redirect(new URL(`/dashboard?success=true&user=${userData.username}`, req.url))
+    // Store user data in the database
+    try {
+      await prisma.user.upsert({
+        where: { id: userData.id },
+        update: {
+          username: userData.username,
+          avatar: userData.avatar,
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token,
+          tokenExpires: new Date(Date.now() + tokenData.expires_in * 1000),
+          lastLogin: new Date(),
+        },
+        create: {
+          id: userData.id,
+          username: userData.username,
+          avatar: userData.avatar,
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token,
+          tokenExpires: new Date(Date.now() + tokenData.expires_in * 1000),
+          lastLogin: new Date(),
+        },
+      })
+
+      // You might want to create a session cookie here
+
+      return NextResponse.redirect(new URL(`/dashboard?success=true&user=${userData.username}`, req.url))
+    } catch (error) {
+      console.error("Failed to store user data:", error)
+      return NextResponse.redirect(new URL("/?error=database_error", req.url))
+    }
   } catch (error) {
     console.error("OAuth callback error:", error)
     return NextResponse.redirect(new URL("/?error=server_error", req.url))
