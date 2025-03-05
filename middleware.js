@@ -1,2 +1,13 @@
-// This file is intentionally empty to disable the middleware
+import { NextResponse } from "next/server"
+
+// This function can be marked `async` if using `await` inside
+export function middleware(request) {
+  // Simply pass through all requests without any modifications
+  return NextResponse.next()
+}
+
+// Configure the middleware to run only on specific paths
+export const config = {
+  matcher: [], // Empty array means it won't match any paths
+}
 
