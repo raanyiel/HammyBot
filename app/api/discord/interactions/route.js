@@ -224,7 +224,9 @@ export async function POST(req) {
         return NextResponse.json({
           type: CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: `📚 **GitHub Repository**\nCheck out my source code and contribute to my development: ${GITHUB_REPO_URL}`,
+            content: `📚 **GitHub Repository**
+Check out my source code and contribute to my development: ${GITHUB_REPO_URL}
+Created by <@eekaj7361>`,
             components: [
               {
                 type: 1, // ACTION_ROW
@@ -984,14 +986,12 @@ ${webhookList}`,
 
       // Handle starboard command
       else if (name === "starboard") {
-        const subCommand = options[0].name
+        const subCommand = options[0].name;
 
         if (subCommand === "setup") {
-          const channelOption = options[0].options.find((opt) => opt.name === "channel")
-          const thresholdOption = options[0].options.find((opt) => opt.name === "threshold")
-          const emojiOption = options[0].options.find((opt) => opt.name === "emoji")
-
-          if (!channelOption) {
+          const channelOption = options[0].options.find((opt) => opt.name === "channel");
+          const thresholdOption = options[0].options.find((opt) => opt.name === "threshold");
+          const emojiOption = options[0].options.find((opt) => opt.name === \"emoji          if (!channelOption) {
             return NextResponse.json({
               type: CHANNEL_MESSAGE_WITH_SOURCE,
               data: { content: "Please specify a channel for the starboard." },
@@ -1085,15 +1085,17 @@ ${webhookList}`,
       }
     }
 
-    // Default response for unhandled interaction types
-    console.log("Unhandled interaction type")
-    return NextResponse.json({
-      type: CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: "Unhandled interaction type." },
-    })
-  } catch (error) {
-    console.error("Error processing interaction:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
+  // Default response for unhandled interaction types
+  console.log("Unhandled interaction type")
+  return NextResponse.json({
+    type: CHANNEL_MESSAGE_WITH_SOURCE,
+    data: { content: "Unhandled interaction type." },
+  })
+}
+catch (error)
+{
+  console.error("Error processing interaction:", error)
+  return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+}
 }
 
