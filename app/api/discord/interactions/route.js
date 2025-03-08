@@ -286,6 +286,13 @@ Created by <@371771143993950211>`,
           const member = await memberResponse.json()
 
           // Add this after getting the member data
+          console.log("Full member data:", JSON.stringify(member, null, 2))
+          console.log(
+            "Member presence:",
+            member.presence ? JSON.stringify(member.presence, null, 2) : "No presence data",
+          )
+
+          // Add this after getting the member data
           console.log(
             "Member presence data:",
             member.presence ? JSON.stringify(member.presence, null, 2) : "No presence data",
@@ -311,48 +318,62 @@ Created by <@371771143993950211>`,
             activities = member.presence.activities
           }
 
-          console.log("User activities:", JSON.stringify(activities))
+          // If we still don't have activities, try getting them from the guild's presences
+          if (!activities || activities.length === 0) {
+            try {
+              console.log("Attempting to fetch guild presences...")
+              const guildResponse = await discordRequest(`guilds/${guildId}?with_presences=true`, {
+                method: "GET",
+              })
+
+              if (guildResponse.ok) {
+                const guild = await guildResponse.json()
+                console.log("Guild presences:", JSON.stringify(guild.presences, null, 2))
+
+                const userPresence = guild.presences?.find((p) => p.user.id === userId)
+                if (userPresence?.activities) {
+                  activities = userPresence.activities
+                  console.log("Found activities from guild presences:", JSON.stringify(activities, null, 2))
+                }
+              }
+            } catch (error) {
+              console.error("Error fetching guild presences:", error)
+            }
+          }
+
+          console.log("Raw activities array:", JSON.stringify(activities, null, 2))
 
           // Find a music activity - check for multiple types of music activities
           const musicActivity = activities.find((activity) => {
             console.log("Checking activity:", JSON.stringify(activity, null, 2))
 
-            // Check for standard "Listening" activity
-            if (activity.type === 2) return true
+            // Check if user has the "listening" status
+            if (activity.type === 2 || activity.type === "LISTENING") return true
 
             // Check for YouTube Music
-            if (activity.name === "YouTube Music") return true
+            if (activity.name === "YouTube Music" || activity.application_id === "880218394199220334") return true
+
+            // Check for Spotify
+            if (activity.name === "Spotify") return true
 
             // Check for custom activities (type 0) with music service names
             if (
-              activity.type === 0 &&
-              (activity.name.toLowerCase().includes("spotify") ||
-                activity.name.toLowerCase().includes("youtube") ||
-                activity.name.toLowerCase().includes("apple music") ||
-                activity.name.toLowerCase().includes("soundcloud") ||
-                activity.name.toLowerCase().includes("tidal") ||
-                activity.name.toLowerCase().includes("deezer") ||
-                activity.name.toLowerCase().includes("pandora"))
+              (activity.type === 0 || activity.type === "CUSTOM") &&
+              (activity.name?.toLowerCase().includes("spotify") ||
+                activity.name?.toLowerCase().includes("youtube") ||
+                activity.name?.toLowerCase().includes("apple music") ||
+                activity.name?.toLowerCase().includes("soundcloud") ||
+                activity.name?.toLowerCase().includes("tidal") ||
+                activity.name?.toLowerCase().includes("deezer") ||
+                activity.name?.toLowerCase().includes("pandora") ||
+                activity.name?.toLowerCase().includes("music"))
             )
               return true
 
-            // Check for YouTube Music's specific format
-            if (
-              activity.application_id === "880218394199220334" || // YouTube Music's application ID
-              activity.name === "YouTube Music"
-            ) {
-              return true
-            }
-
-            // Check activity details for music-related terms
-            if (
-              activity.details &&
-              (activity.details.toLowerCase().includes("listening to") ||
-                activity.details.toLowerCase().includes("playing") ||
-                activity.details.toLowerCase().includes("track") ||
-                activity.details.toLowerCase().includes("song"))
-            )
-              return true
+            // Check activity state and details for music-related terms
+            const musicTerms = ["listening to", "playing", "track", "song", "music"]
+            const activityText = `${activity.state || ""} ${activity.details || ""}`.toLowerCase()
+            if (musicTerms.some((term) => activityText.includes(term))) return true
 
             return false
           })
