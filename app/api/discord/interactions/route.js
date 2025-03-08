@@ -244,6 +244,176 @@ Created by <@371771143993950211>`,
         })
       }
 
+      // Handle Listening command
+      if (name === "listening") {
+        const userId = options.find((opt) => opt.name === "user")?.value
+
+        if (!userId) {
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "Please specify a user to check what they're listening to." },
+          })
+        }
+
+        try {
+          // Get the guild member with their presence data
+          const memberResponse = await discordRequest(`guilds/${guildId}/members/${userId}?with_presence=true`, {
+            method: "GET",
+          })
+
+          if (!memberResponse.ok) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: { content: "Failed to fetch user information." },
+            })
+          }
+
+          const member = await memberResponse.json()
+
+          // Get user information for a nicer display
+          const userResponse = await discordRequest(`users/${userId}`, {
+            method: "GET",
+          })
+
+          const user = await userResponse.json()
+
+          // Check if the user has any activities
+          if (!member.presence || !member.presence.activities || member.presence.activities.length === 0) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `<@${userId}> is not currently listening to anything.`,
+                allowed_mentions: { parse: [] }, // Prevent user ping
+              },
+            })
+          }
+
+          // Find a Spotify or other music activity
+          const musicActivity = member.presence.activities.find(
+            (activity) =>
+              activity.type === 2 || // Listening activity
+              (activity.type === 0 && activity.name.toLowerCase() === "spotify"), // Custom activity for Spotify
+          )
+
+          if (!musicActivity) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `<@${userId}> is not currently listening to anything.`,
+                allowed_mentions: { parse: [] }, // Prevent user ping
+              },
+            })
+          }
+
+          // Extract music information
+          const songName = musicActivity.details || "Unknown Song"
+          const artist = musicActivity.state || "Unknown Artist"
+          const album = musicActivity.assets?.large_text || "Unknown Album"
+
+          // Try to create a link based on the service
+          let songLink = ""
+          let color = 0x1db954 // Spotify green default
+
+          if (musicActivity.name.toLowerCase() === "spotify") {
+            // For Spotify, we can create a search link
+            const encodedSong = encodeURIComponent(`${songName} ${artist}`)
+            songLink = `https://open.spotify.com/search/${encodedSong}`
+
+            // If we have Spotify metadata with a track ID, use that instead
+            if (musicActivity.sync_id) {
+              songLink = `https://open.spotify.com/track/${musicActivity.sync_id}`
+            }
+          } else if (musicActivity.name.toLowerCase().includes("youtube")) {
+            // For YouTube Music
+            const encodedSong = encodeURIComponent(`${songName} ${artist}`)
+            songLink = `https://music.youtube.com/search?q=${encodedSong}`
+            color = 0xff0000 // YouTube red
+          } else if (musicActivity.name.toLowerCase().includes("apple")) {
+            // For Apple Music
+            const encodedSong = encodeURIComponent(`${songName} ${artist}`)
+            songLink = `https://music.apple.com/search?term=${encodedSong}`
+            color = 0xfa243c // Apple Music red
+          } else {
+            // Generic search fallback
+            const encodedSong = encodeURIComponent(`${songName} ${artist}`)
+            songLink = `https://www.google.com/search?q=${encodedSong}`
+          }
+
+          // Create a timestamp for how long they've been listening
+          let listeningDuration = ""
+          if (musicActivity.timestamps) {
+            const startTime = new Date(musicActivity.timestamps.start).getTime()
+            const currentTime = Date.now()
+            const durationMs = currentTime - startTime
+
+            // Format duration as mm:ss
+            const minutes = Math.floor(durationMs / 60000)
+            const seconds = Math.floor((durationMs % 60000) / 1000)
+            listeningDuration = `${minutes}:${seconds.toString().padStart(2, "0")}`
+          }
+
+          // Create an embed with the song information
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              embeds: [
+                {
+                  title: songName,
+                  description: `by ${artist}`,
+                  color: color,
+                  fields: [
+                    {
+                      name: "Album",
+                      value: album,
+                      inline: true,
+                    },
+                    {
+                      name: "Service",
+                      value: musicActivity.name,
+                      inline: true,
+                    },
+                    {
+                      name: "Listening for",
+                      value: listeningDuration || "Unknown",
+                      inline: true,
+                    },
+                  ],
+                  author: {
+                    name: `${user.username} is listening to`,
+                    icon_url: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null,
+                  },
+                  footer: {
+                    text: "Powered by Hammy Bot",
+                  },
+                  timestamp: new Date().toISOString(),
+                },
+              ],
+              components: [
+                {
+                  type: 1, // ACTION_ROW
+                  components: [
+                    {
+                      type: 2, // BUTTON
+                      style: 5, // LINK
+                      label: "Listen on " + musicActivity.name,
+                      url: songLink,
+                    },
+                  ],
+                },
+              ],
+            },
+          })
+        } catch (error) {
+          console.error("Error fetching listening activity:", error)
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: "Failed to fetch listening activity. The user might not be sharing their activity status.",
+            },
+          })
+        }
+      }
+
       // Handle logging command
       else if (name === "logging") {
         const subCommand = options[0].name
