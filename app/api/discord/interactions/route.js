@@ -256,65 +256,156 @@ Created by <@371771143993950211>`,
         }
 
         try {
-          // Get the guild member with their presence data
-          const memberResponse = await discordRequest(`guilds/${guildId}/members/${userId}?with_presence=true`, {
+          // First, get the user's basic info
+          const userResponse = await discordRequest(`users/${userId}`, {
             method: "GET",
           })
 
-          if (!memberResponse.ok) {
+          if (!userResponse.ok) {
             return NextResponse.json({
               type: CHANNEL_MESSAGE_WITH_SOURCE,
               data: { content: "Failed to fetch user information." },
             })
           }
 
-          const member = await memberResponse.json()
+          const user = await userResponse.json()
 
-          // Get user information for a nicer display
-          const userResponse = await discordRequest(`users/${userId}`, {
+          // Get the guild member with presence intent
+          // Note: This requires the bot to have the PRESENCE intent enabled in the Discord Developer Portal
+          const memberResponse = await discordRequest(`guilds/${guildId}/members/${userId}`, {
             method: "GET",
           })
 
-          const user = await userResponse.json()
+          if (!memberResponse.ok) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: { content: "Failed to fetch member information." },
+            })
+          }
 
-          // Check if the user has any activities
-          if (!member.presence || !member.presence.activities || member.presence.activities.length === 0) {
+          const member = await memberResponse.json()
+
+          // We need to get the presence separately since it might not be included in the member response
+          const presenceResponse = await discordRequest(`guilds/${guildId}/presences/${userId}`, {
+            method: "GET",
+          }).catch((err) => {
+            console.error("Error fetching presence:", err)
+            return { ok: false }
+          })
+
+          let activities = []
+
+          // Try to get activities from the presence response
+          if (presenceResponse && presenceResponse.ok) {
+            const presence = await presenceResponse.json()
+            activities = presence.activities || []
+          }
+          // Fallback to member.presence if available
+          else if (member.presence && member.presence.activities) {
+            activities = member.presence.activities
+          }
+
+          console.log("User activities:", JSON.stringify(activities))
+
+          // If no activities found, try a different approach - get all presences for the guild
+          if (activities.length === 0) {
+            try {
+              const allPresencesResponse = await discordRequest(`guilds/${guildId}/presences`, {
+                method: "GET",
+              })
+
+              if (allPresencesResponse.ok) {
+                const allPresences = await allPresencesResponse.json()
+                const userPresence = allPresences.find((p) => p.user.id === userId)
+                if (userPresence && userPresence.activities) {
+                  activities = userPresence.activities
+                  console.log("Found activities from guild presences:", JSON.stringify(activities))
+                }
+              }
+            } catch (presenceError) {
+              console.error("Error fetching all presences:", presenceError)
+            }
+          }
+
+          // If still no activities, check if we can get them from the member object directly
+          if (activities.length === 0 && member.activities) {
+            activities = member.activities
+            console.log("Using activities from member object:", JSON.stringify(activities))
+          }
+
+          // If we still have no activities, the user isn't doing anything or we can't access their presence
+          if (!activities || activities.length === 0) {
             return NextResponse.json({
               type: CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `<@${userId}> is not currently listening to anything.`,
+                content: `<@${userId}> is not currently listening to anything, or their activity status is not visible.`,
                 allowed_mentions: { parse: [] }, // Prevent user ping
               },
             })
           }
 
-          // Find a Spotify or other music activity
-          const musicActivity = member.presence.activities.find(
+          // Find a music activity - check for multiple types of music activities
+          // Type 2 is "Listening", but some apps use custom activities (type 0) with specific names
+          const musicActivity = activities.find(
             (activity) =>
               activity.type === 2 || // Listening activity
-              (activity.type === 0 && activity.name.toLowerCase() === "spotify"), // Custom activity for Spotify
+              (activity.type === 0 &&
+                (activity.name.toLowerCase().includes("spotify") ||
+                  activity.name.toLowerCase().includes("youtube") ||
+                  activity.name.toLowerCase().includes("apple music") ||
+                  activity.name.toLowerCase().includes("soundcloud") ||
+                  activity.name.toLowerCase().includes("tidal") ||
+                  activity.name.toLowerCase().includes("deezer") ||
+                  activity.name.toLowerCase().includes("pandora") ||
+                  activity.name.toLowerCase().includes("music"))),
           )
+
+          console.log("Music activity found:", musicActivity ? JSON.stringify(musicActivity) : "None")
 
           if (!musicActivity) {
             return NextResponse.json({
               type: CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
-                content: `<@${userId}> is not currently listening to anything.`,
+                content: `<@${userId}> is online but not currently listening to music.`,
                 allowed_mentions: { parse: [] }, // Prevent user ping
               },
             })
           }
 
-          // Extract music information
-          const songName = musicActivity.details || "Unknown Song"
-          const artist = musicActivity.state || "Unknown Artist"
-          const album = musicActivity.assets?.large_text || "Unknown Album"
+          // Extract music information - different services structure this differently
+          let songName = "Unknown Song"
+          let artist = "Unknown Artist"
+          let album = "Unknown Album"
+
+          // Spotify usually puts song name in details, artist in state
+          if (musicActivity.details) {
+            songName = musicActivity.details
+          }
+
+          if (musicActivity.state) {
+            artist = musicActivity.state
+            // Sometimes Spotify puts "Artist - Album" in state
+            if (artist.includes(" - ")) {
+              const parts = artist.split(" - ")
+              artist = parts[0]
+              album = parts[1] || album
+            }
+          }
+
+          // Some services put album info in assets.large_text
+          if (musicActivity.assets && musicActivity.assets.large_text) {
+            // If we don't have an album yet, use this
+            if (album === "Unknown Album") {
+              album = musicActivity.assets.large_text
+            }
+          }
 
           // Try to create a link based on the service
           let songLink = ""
           let color = 0x1db954 // Spotify green default
+          let serviceName = musicActivity.name || "Music Service"
 
-          if (musicActivity.name.toLowerCase() === "spotify") {
+          if (musicActivity.name && musicActivity.name.toLowerCase().includes("spotify")) {
             // For Spotify, we can create a search link
             const encodedSong = encodeURIComponent(`${songName} ${artist}`)
             songLink = `https://open.spotify.com/search/${encodedSong}`
@@ -323,16 +414,20 @@ Created by <@371771143993950211>`,
             if (musicActivity.sync_id) {
               songLink = `https://open.spotify.com/track/${musicActivity.sync_id}`
             }
-          } else if (musicActivity.name.toLowerCase().includes("youtube")) {
+
+            serviceName = "Spotify"
+          } else if (musicActivity.name && musicActivity.name.toLowerCase().includes("youtube")) {
             // For YouTube Music
             const encodedSong = encodeURIComponent(`${songName} ${artist}`)
             songLink = `https://music.youtube.com/search?q=${encodedSong}`
             color = 0xff0000 // YouTube red
-          } else if (musicActivity.name.toLowerCase().includes("apple")) {
+            serviceName = "YouTube Music"
+          } else if (musicActivity.name && musicActivity.name.toLowerCase().includes("apple")) {
             // For Apple Music
             const encodedSong = encodeURIComponent(`${songName} ${artist}`)
             songLink = `https://music.apple.com/search?term=${encodedSong}`
             color = 0xfa243c // Apple Music red
+            serviceName = "Apple Music"
           } else {
             // Generic search fallback
             const encodedSong = encodeURIComponent(`${songName} ${artist}`)
@@ -341,7 +436,7 @@ Created by <@371771143993950211>`,
 
           // Create a timestamp for how long they've been listening
           let listeningDuration = ""
-          if (musicActivity.timestamps) {
+          if (musicActivity.timestamps && musicActivity.timestamps.start) {
             const startTime = new Date(musicActivity.timestamps.start).getTime()
             const currentTime = Date.now()
             const durationMs = currentTime - startTime
@@ -369,7 +464,7 @@ Created by <@371771143993950211>`,
                     },
                     {
                       name: "Service",
-                      value: musicActivity.name,
+                      value: serviceName,
                       inline: true,
                     },
                     {
@@ -395,7 +490,7 @@ Created by <@371771143993950211>`,
                     {
                       type: 2, // BUTTON
                       style: 5, // LINK
-                      label: "Listen on " + musicActivity.name,
+                      label: "Listen on " + serviceName,
                       url: songLink,
                     },
                   ],
@@ -408,7 +503,9 @@ Created by <@371771143993950211>`,
           return NextResponse.json({
             type: CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content: "Failed to fetch listening activity. The user might not be sharing their activity status.",
+              content:
+                "Failed to fetch listening activity. This might be due to Discord API limitations or missing permissions.",
+              flags: 64, // Ephemeral flag - only visible to the command user
             },
           })
         }
