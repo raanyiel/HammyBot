@@ -285,6 +285,12 @@ Created by <@371771143993950211>`,
 
           const member = await memberResponse.json()
 
+          // Add this after getting the member data
+          console.log(
+            "Member presence data:",
+            member.presence ? JSON.stringify(member.presence, null, 2) : "No presence data",
+          )
+
           // We need to get the presence separately since it might not be included in the member response
           const presenceResponse = await discordRequest(`guilds/${guildId}/presences/${userId}`, {
             method: "GET",
@@ -307,60 +313,51 @@ Created by <@371771143993950211>`,
 
           console.log("User activities:", JSON.stringify(activities))
 
-          // If no activities found, try a different approach - get all presences for the guild
-          if (activities.length === 0) {
-            try {
-              const allPresencesResponse = await discordRequest(`guilds/${guildId}/presences`, {
-                method: "GET",
-              })
-
-              if (allPresencesResponse.ok) {
-                const allPresences = await allPresencesResponse.json()
-                const userPresence = allPresences.find((p) => p.user.id === userId)
-                if (userPresence && userPresence.activities) {
-                  activities = userPresence.activities
-                  console.log("Found activities from guild presences:", JSON.stringify(activities))
-                }
-              }
-            } catch (presenceError) {
-              console.error("Error fetching all presences:", presenceError)
-            }
-          }
-
-          // If still no activities, check if we can get them from the member object directly
-          if (activities.length === 0 && member.activities) {
-            activities = member.activities
-            console.log("Using activities from member object:", JSON.stringify(activities))
-          }
-
-          // If we still have no activities, the user isn't doing anything or we can't access their presence
-          if (!activities || activities.length === 0) {
-            return NextResponse.json({
-              type: CHANNEL_MESSAGE_WITH_SOURCE,
-              data: {
-                content: `<@${userId}> is not currently listening to anything, or their activity status is not visible.`,
-                allowed_mentions: { parse: [] }, // Prevent user ping
-              },
-            })
-          }
-
           // Find a music activity - check for multiple types of music activities
-          // Type 2 is "Listening", but some apps use custom activities (type 0) with specific names
-          const musicActivity = activities.find(
-            (activity) =>
-              activity.type === 2 || // Listening activity
-              (activity.type === 0 &&
-                (activity.name.toLowerCase().includes("spotify") ||
-                  activity.name.toLowerCase().includes("youtube") ||
-                  activity.name.toLowerCase().includes("apple music") ||
-                  activity.name.toLowerCase().includes("soundcloud") ||
-                  activity.name.toLowerCase().includes("tidal") ||
-                  activity.name.toLowerCase().includes("deezer") ||
-                  activity.name.toLowerCase().includes("pandora") ||
-                  activity.name.toLowerCase().includes("music"))),
-          )
+          const musicActivity = activities.find((activity) => {
+            console.log("Checking activity:", JSON.stringify(activity, null, 2))
 
-          console.log("Music activity found:", musicActivity ? JSON.stringify(musicActivity) : "None")
+            // Check for standard "Listening" activity
+            if (activity.type === 2) return true
+
+            // Check for YouTube Music
+            if (activity.name === "YouTube Music") return true
+
+            // Check for custom activities (type 0) with music service names
+            if (
+              activity.type === 0 &&
+              (activity.name.toLowerCase().includes("spotify") ||
+                activity.name.toLowerCase().includes("youtube") ||
+                activity.name.toLowerCase().includes("apple music") ||
+                activity.name.toLowerCase().includes("soundcloud") ||
+                activity.name.toLowerCase().includes("tidal") ||
+                activity.name.toLowerCase().includes("deezer") ||
+                activity.name.toLowerCase().includes("pandora"))
+            )
+              return true
+
+            // Check for YouTube Music's specific format
+            if (
+              activity.application_id === "880218394199220334" || // YouTube Music's application ID
+              activity.name === "YouTube Music"
+            ) {
+              return true
+            }
+
+            // Check activity details for music-related terms
+            if (
+              activity.details &&
+              (activity.details.toLowerCase().includes("listening to") ||
+                activity.details.toLowerCase().includes("playing") ||
+                activity.details.toLowerCase().includes("track") ||
+                activity.details.toLowerCase().includes("song"))
+            )
+              return true
+
+            return false
+          })
+
+          console.log("Found music activity:", musicActivity ? JSON.stringify(musicActivity, null, 2) : "None")
 
           if (!musicActivity) {
             return NextResponse.json({
@@ -376,34 +373,34 @@ Created by <@371771143993950211>`,
           let songName = "Unknown Song"
           let artist = "Unknown Artist"
           let album = "Unknown Album"
+          const serviceName = musicActivity.name || "Music Service"
 
-          // Spotify usually puts song name in details, artist in state
-          if (musicActivity.details) {
+          // YouTube Music specific handling
+          if (musicActivity.application_id === "880218394199220334" || musicActivity.name === "YouTube Music") {
+            songName = musicActivity.details || songName
+            artist = musicActivity.state || artist
+          }
+          // Standard music activity handling
+          else if (musicActivity.details) {
             songName = musicActivity.details
-          }
-
-          if (musicActivity.state) {
-            artist = musicActivity.state
-            // Sometimes Spotify puts "Artist - Album" in state
-            if (artist.includes(" - ")) {
-              const parts = artist.split(" - ")
-              artist = parts[0]
-              album = parts[1] || album
+            if (musicActivity.state) {
+              // Some services put "Artist - Album" in state
+              if (musicActivity.state.includes(" - ")) {
+                const [artistPart, albumPart] = musicActivity.state.split(" - ")
+                artist = artistPart
+                album = albumPart
+              } else {
+                artist = musicActivity.state
+              }
             }
           }
 
-          // Some services put album info in assets.large_text
-          if (musicActivity.assets && musicActivity.assets.large_text) {
-            // If we don't have an album yet, use this
-            if (album === "Unknown Album") {
-              album = musicActivity.assets.large_text
-            }
-          }
+          console.log("Extracted music info:", { songName, artist, album, serviceName })
 
           // Try to create a link based on the service
           let songLink = ""
           let color = 0x1db954 // Spotify green default
-          let serviceName = musicActivity.name || "Music Service"
+          let musicServiceName = musicActivity.name || "Music Service"
 
           if (musicActivity.name && musicActivity.name.toLowerCase().includes("spotify")) {
             // For Spotify, we can create a search link
@@ -415,19 +412,19 @@ Created by <@371771143993950211>`,
               songLink = `https://open.spotify.com/track/${musicActivity.sync_id}`
             }
 
-            serviceName = "Spotify"
+            musicServiceName = "Spotify"
           } else if (musicActivity.name && musicActivity.name.toLowerCase().includes("youtube")) {
             // For YouTube Music
             const encodedSong = encodeURIComponent(`${songName} ${artist}`)
             songLink = `https://music.youtube.com/search?q=${encodedSong}`
             color = 0xff0000 // YouTube red
-            serviceName = "YouTube Music"
+            musicServiceName = "YouTube Music"
           } else if (musicActivity.name && musicActivity.name.toLowerCase().includes("apple")) {
             // For Apple Music
             const encodedSong = encodeURIComponent(`${songName} ${artist}`)
             songLink = `https://music.apple.com/search?term=${encodedSong}`
             color = 0xfa243c // Apple Music red
-            serviceName = "Apple Music"
+            musicServiceName = "Apple Music"
           } else {
             // Generic search fallback
             const encodedSong = encodeURIComponent(`${songName} ${artist}`)
@@ -464,7 +461,7 @@ Created by <@371771143993950211>`,
                     },
                     {
                       name: "Service",
-                      value: serviceName,
+                      value: musicServiceName,
                       inline: true,
                     },
                     {
@@ -490,7 +487,7 @@ Created by <@371771143993950211>`,
                     {
                       type: 2, // BUTTON
                       style: 5, // LINK
-                      label: "Listen on " + serviceName,
+                      label: "Listen on " + musicServiceName,
                       url: songLink,
                     },
                   ],
