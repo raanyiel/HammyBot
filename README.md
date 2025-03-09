@@ -20,6 +20,7 @@ A powerful Discord moderation bot built with Next.js and deployed on Vercel. Ham
 - **Automatic Command Registration**: Commands are registered automatically on deployment
 - **Warning System**: Track and manage user warnings with a persistent database
 - **Starboard**: Highlight popular messages in a dedicated channel
+- **Points System**: Track and manage user points with a customizable leaderboard
 
 ## Database Features
 
@@ -127,6 +128,17 @@ The bot now includes persistent storage with PostgreSQL and Prisma, offering:
   - `emoji` - The emoji to use for stars (default: ⭐)
 - `/starboard disable` - Disable the starboard for this server
 - `/starboard status` - Check the current starboard status and configuration
+
+### Points System
+
+- `/points view @user` - View points for a user (or yourself if no user is specified)
+- `/points set @user [points]` - Set a user's points to a specific value
+- `/points add @user [points]` - Add points to a user
+- `/points remove @user [points]` - Remove points from a user
+- `/points reset @user` - Reset a user's points to 0
+- `/points reset` - Reset all points in the server
+- `/points role @role` - View points for users with a specific role
+- `/leaderboard [limit]` - Show the server points leaderboard
 
 ### Logging
 
