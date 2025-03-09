@@ -1384,3 +1384,25 @@ ${webhookList}`,
   }
 }
 
+// Create an embed for logging moderation actions
+function createLogEmbed(action, moderator, user, reason, extraFields = {}) {
+  const actionText = action.charAt(0).toUpperCase() + action.slice(1)
+  const userText = user ? `${user.username} (${user.id})` : "Unknown User"
+  const reasonText = reason || "No reason provided"
+
+  const fields = [
+    { name: "Action", value: actionText, inline: true },
+    { name: "User", value: userText, inline: true },
+    { name: "Reason", value: reasonText },
+  ]
+
+  for (const [name, value] of Object.entries(extraFields)) {
+    fields.push({ name, value })
+  }
+
+  return {
+    title: `${actionText} by ${moderator.username}`,
+    color: 0xff0000, // Red
+    fields,
+  }
+}
