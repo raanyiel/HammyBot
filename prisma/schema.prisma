@@ -77,7 +77,30 @@ model StarboardConfig {
   updatedAt       DateTime @updatedAt
 }
 
-// New model for storing GitHub events during deployments
+// New model for storing user points
+model UserPoints {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  points    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, userId])
+  @@index([guildId, points(sort: Desc)])
+}
+
+// New model for storing guild points settings
+model PointsConfig {
+  id              String   @id @default(cuid())
+  guildId         String   @unique
+  enabled         Boolean  @default(true)
+  moderatorRoles  String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Existing models below
 model PendingGithubEvent {
   id          String   @id @default(cuid())
   repository  String
@@ -85,11 +108,9 @@ model PendingGithubEvent {
   payload     String   @db.Text  // JSON payload stored as text
   processed   Boolean  @default(false)
   createdAt   DateTime @default(now())
-  
+
   @@index([repository, processed])
 }
-
-// Add User model to your schema
 
 model User {
   id            String   @id
