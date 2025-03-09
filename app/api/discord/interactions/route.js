@@ -16,6 +16,17 @@ import {
   clearWarning,
 } from "../../../../lib/discord"
 import { setStarboardConfig, getStarboardConfig, disableStarboard } from "../../../../lib/starboard"
+import {
+  getUserPoints,
+  setUserPoints,
+  increaseUserPoints,
+  decreaseUserPoints,
+  resetUserPoints,
+  resetAllPoints,
+  getLeaderboard,
+  getPointsByRole,
+  canManagePoints,
+} from "../../../../lib/points"
 
 // Interaction type constants
 const PING = 1
@@ -1363,6 +1374,383 @@ ${webhookList}`,
         }
       }
 
+      // Handle points command
+      else if (name === "points") {
+        const subCommand = options[0].name
+        const subCommandOptions = options[0].options || []
+
+        // Check if user has permission to manage points (except for view)
+        if (subCommand !== "view") {
+          const hasPermission = await canManagePoints(guildId, moderator.id)
+          if (!hasPermission) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "You don't have permission to manage points.",
+                flags: 64, // Ephemeral flag
+              },
+            })
+          }
+        }
+
+        if (subCommand === "view") {
+          const userOption = subCommandOptions.find((opt) => opt.name === "user")
+          const targetUserId = userOption?.value || moderator.id // If no user specified, show the command user's points
+
+          try {
+            // Get user information
+            const userResponse = await discordRequest(`users/${targetUserId}`, {
+              method: "GET",
+            })
+            const user = await userResponse.json()
+
+            // Get points for the user
+            const points = await getUserPoints(guildId, targetUserId)
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `<@${targetUserId}> has **${points}** points.`,
+                allowed_mentions: { parse: [] }, // Prevent user ping
+                flags: 64, // Ephemeral flag
+              },
+            })
+          } catch (error) {
+            console.error("Error viewing points:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to view points. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
+        } else if (subCommand === "set") {
+          const userOption = subCommandOptions.find((opt) => opt.name === "user")
+          const pointsOption = subCommandOptions.find((opt) => opt.name === "points")
+
+          if (!userOption || !pointsOption) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Please specify both a user and points value.",
+                flags: 64,
+              },
+            })
+          }
+
+          const targetUserId = userOption.value
+          const pointsValue = pointsOption.value
+
+          try {
+            // Get user information
+            const userResponse = await discordRequest(`users/${targetUserId}`, {
+              method: "GET",
+            })
+            const user = await userResponse.json()
+
+            // Set points for the user
+            await setUserPoints(guildId, targetUserId, pointsValue)
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `Set <@${targetUserId}>'s points to **${pointsValue}**.`,
+                allowed_mentions: { parse: [] }, // Prevent user ping
+              },
+            })
+          } catch (error) {
+            console.error("Error setting points:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to set points. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
+        } else if (subCommand === "add") {
+          const userOption = subCommandOptions.find((opt) => opt.name === "user")
+          const pointsOption = subCommandOptions.find((opt) => opt.name === "points")
+
+          if (!userOption || !pointsOption) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Please specify both a user and points value.",
+                flags: 64,
+              },
+            })
+          }
+
+          const targetUserId = userOption.value
+          const pointsValue = pointsOption.value
+
+          try {
+            // Get user information
+            const userResponse = await discordRequest(`users/${targetUserId}`, {
+              method: "GET",
+            })
+            const user = await userResponse.json()
+
+            // Add points for the user
+            const updatedPoints = await increaseUserPoints(guildId, targetUserId, pointsValue)
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `Added **${pointsValue}** points to <@${targetUserId}>. They now have **${updatedPoints.points}** points.`,
+                allowed_mentions: { parse: [] }, // Prevent user ping
+              },
+            })
+          } catch (error) {
+            console.error("Error adding points:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to add points. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
+        } else if (subCommand === "remove") {
+          const userOption = subCommandOptions.find((opt) => opt.name === "user")
+          const pointsOption = subCommandOptions.find((opt) => opt.name === "points")
+
+          if (!userOption || !pointsOption) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Please specify both a user and points value.",
+                flags: 64,
+              },
+            })
+          }
+
+          const targetUserId = userOption.value
+          const pointsValue = pointsOption.value
+
+          try {
+            // Get user information
+            const userResponse = await discordRequest(`users/${targetUserId}`, {
+              method: "GET",
+            })
+            const user = await userResponse.json()
+
+            // Remove points from the user
+            const updatedPoints = await decreaseUserPoints(guildId, targetUserId, pointsValue)
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `Removed **${pointsValue}** points from <@${targetUserId}>. They now have **${updatedPoints.points}** points.`,
+                allowed_mentions: { parse: [] }, // Prevent user ping
+              },
+            })
+          } catch (error) {
+            console.error("Error removing points:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to remove points. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
+        } else if (subCommand === "reset") {
+          const userOption = subCommandOptions.find((opt) => opt.name === "user")
+          const targetUserId = userOption?.value
+
+          try {
+            if (targetUserId) {
+              // Reset points for a specific user
+              const userResponse = await discordRequest(`users/${targetUserId}`, {
+                method: "GET",
+              })
+              const user = await userResponse.json()
+
+              await resetUserPoints(guildId, targetUserId)
+
+              return NextResponse.json({
+                type: CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                  content: `Reset <@${targetUserId}>'s points to 0.`,
+                  allowed_mentions: { parse: [] }, // Prevent user ping
+                },
+              })
+            } else {
+              // Reset all points in the guild
+              const count = await resetAllPoints(guildId)
+
+              return NextResponse.json({
+                type: CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                  content: `Reset points for all users in the server. Affected ${count} users.`,
+                },
+              })
+            }
+          } catch (error) {
+            console.error("Error resetting points:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to reset points. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
+        } else if (subCommand === "role") {
+          const roleOption = subCommandOptions.find((opt) => opt.name === "role")
+
+          if (!roleOption) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Please specify a role.",
+                flags: 64,
+              },
+            })
+          }
+
+          const roleId = roleOption.value
+
+          try {
+            // Get role information
+            const rolesResponse = await discordRequest(`guilds/${guildId}/roles`, {
+              method: "GET",
+            })
+
+            const roles = await rolesResponse.json()
+            const role = roles.find((r) => r.id === roleId)
+
+            // Get points for users with this role
+            const usersWithRole = await getPointsByRole(guildId, roleId)
+
+            if (usersWithRole.length === 0) {
+              return NextResponse.json({
+                type: CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                  content: `No users with the <@&${roleId}> role have any points.`,
+                  allowed_mentions: { parse: [] }, // Prevent role ping
+                  flags: 64,
+                },
+              })
+            }
+
+            // Format the response
+            const usersList = await Promise.all(
+              usersWithRole.slice(0, 10).map(async (userPoints, index) => {
+                try {
+                  const userResponse = await discordRequest(`users/${userPoints.userId}`, {
+                    method: "GET",
+                  })
+                  const user = await userResponse.json()
+                  return `${index + 1}. <@${userPoints.userId}> (${user.username}): **${userPoints.points}** points`
+                } catch (error) {
+                  return `${index + 1}. <@${userPoints.userId}>: **${userPoints.points}** points`
+                }
+              }),
+            )
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `**Points for users with the ${role ? role.name : roleId} role:**\n\n${usersList.join("\n")}${
+                  usersWithRole.length > 10 ? `\n\n*and ${usersWithRole.length - 10} more users...*` : ""
+                }`,
+                allowed_mentions: { parse: [] }, // Prevent user pings
+                flags: 64,
+              },
+            })
+          } catch (error) {
+            console.error("Error getting points by role:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to get points by role. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
+        }
+      }
+
+      // Handle leaderboard command
+      else if (name === "leaderboard") {
+        const limitOption = options.find((opt) => opt.name === "limit")
+        const limit = limitOption?.value || 10 // Default to 10 if not specified
+
+        try {
+          // Get the leaderboard data
+          const leaderboardData = await getLeaderboard(guildId, limit)
+
+          if (leaderboardData.length === 0) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "No users have any points yet.",
+              },
+            })
+          }
+
+          // Get user information for each user in the leaderboard
+          const leaderboardWithUserInfo = await Promise.all(
+            leaderboardData.map(async (entry, index) => {
+              try {
+                const userResponse = await discordRequest(`users/${entry.userId}`, {
+                  method: "GET",
+                })
+                const user = await userResponse.json()
+                return {
+                  ...entry,
+                  username: user.username,
+                  avatar: user.avatar,
+                  position: index + 1,
+                }
+              } catch (error) {
+                return {
+                  ...entry,
+                  username: "Unknown User",
+                  position: index + 1,
+                }
+              }
+            }),
+          )
+
+          // Create the leaderboard embed
+          const embed = {
+            title: "📊 Guild Score Leaderboards",
+            color: 0x5865f2, // Discord blurple
+            description:
+              "**TEXT SCORE [1/6]**\n" +
+              leaderboardWithUserInfo
+                .map((entry) => `#${entry.position} | <@${entry.userId}> XP: ${entry.points}`)
+                .join("\n"),
+            footer: {
+              text: "Powered by Hammy Bot",
+            },
+            timestamp: new Date().toISOString(),
+          }
+
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              embeds: [embed],
+              allowed_mentions: { parse: [] }, // Prevent user pings
+            },
+          })
+        } catch (error) {
+          console.error("Error getting leaderboard:", error)
+          return NextResponse.json({
+            type: CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: "Failed to get leaderboard. Please try again later.",
+              flags: 64,
+            },
+          })
+        }
+      }
+
       // Default response for unhandled commands
       else {
         return NextResponse.json({
@@ -1384,25 +1772,3 @@ ${webhookList}`,
   }
 }
 
-// Create an embed for logging moderation actions
-function createLogEmbed(action, moderator, user, reason, extraFields = {}) {
-  const actionText = action.charAt(0).toUpperCase() + action.slice(1)
-  const userText = user ? `${user.username} (${user.id})` : "Unknown User"
-  const reasonText = reason || "No reason provided"
-
-  const fields = [
-    { name: "Action", value: actionText, inline: true },
-    { name: "User", value: userText, inline: true },
-    { name: "Reason", value: reasonText },
-  ]
-
-  for (const [name, value] of Object.entries(extraFields)) {
-    fields.push({ name, value })
-  }
-
-  return {
-    title: `${actionText} by ${moderator.username}`,
-    color: 0xff0000, // Red
-    fields,
-  }
-}
