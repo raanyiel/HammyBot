@@ -140,6 +140,23 @@ The bot now includes persistent storage with PostgreSQL and Prisma, offering:
 - `/points role @role` - View points for users with a specific role
 - `/leaderboard [limit]` - Show the server points leaderboard
 
+### XP System
+
+- `/xp config` - Configure the XP system settings
+  - `voice_enabled` - Enable/disable voice XP
+  - `voice_per_minute` - XP awarded per minute in voice
+  - `voice_cooldown` - Cooldown between voice XP awards
+  - `media_enabled` - Enable/disable media submission XP
+  - `media_amount` - XP awarded per media submission
+  - `media_cooldown` - Cooldown between media XP awards
+- `/xp media_channel #channel [enabled]` - Add or remove a channel for media XP rewards
+- `/xp stats @user` - View XP statistics for a user
+- `/xp status` - View the current XP system configuration
+
+Users earn XP automatically by:
+- Spending time in voice channels
+- Submitting media (images, videos, etc.) in designated channels
+
 ### Logging
 
 - `/logging set #channel` - Sets the channel where moderation logs will be sent

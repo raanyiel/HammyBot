@@ -90,6 +90,52 @@ model UserPoints {
   @@index([guildId, points(sort: Desc)])
 }
 
+// Add these models after the UserPoints model
+model UserVoiceSession {
+  id            String   @id @default(cuid())
+  guildId       String
+  userId        String
+  channelId     String
+  joinedAt      DateTime @default(now())
+  leftAt        DateTime?
+  duration      Int?     @default(0) // Duration in seconds
+  xpAwarded     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([guildId, userId])
+  @@index([guildId, channelId])
+}
+
+model MediaSubmission {
+  id            String   @id @default(cuid())
+  guildId       String
+  userId        String
+  channelId     String
+  messageId     String
+  mediaType     String   // image, video, etc.
+  xpAwarded     Boolean  @default(true)
+  xpAmount      Int      @default(5)
+  createdAt     DateTime @default(now())
+
+  @@unique([guildId, messageId])
+  @@index([guildId, userId])
+}
+
+model XpConfig {
+  id                  String   @id @default(cuid())
+  guildId             String   @unique
+  voiceXpEnabled      Boolean  @default(true)
+  voiceXpPerMinute    Int      @default(1)
+  voiceXpCooldown     Int      @default(5) // Minutes between XP awards
+  mediaXpEnabled      Boolean  @default(true)
+  mediaXpAmount       Int      @default(5)
+  mediaXpCooldown     Int      @default(60) // Minutes between media XP awards
+  mediaChannels       String[] @default([])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
 // New model for storing guild points settings
 model PointsConfig {
   id              String   @id @default(cuid())

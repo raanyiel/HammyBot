@@ -27,6 +27,8 @@ import {
   getPointsByRole,
   canManagePoints,
 } from "../../../../lib/points"
+// Add the import for the XP functions at the top of the file with the other imports
+import { getXpConfig, updateXpConfig, getUserVoiceStats, getUserMediaStats } from "../../../../lib/xp"
 
 // Interaction type constants
 const PING = 1
@@ -1737,6 +1739,7 @@ ${webhookList}`,
             data: {
               embeds: [embed],
               allowed_mentions: { parse: [] }, // Prevent user pings
+              flags: 64, // Ephemeral flag - only visible to the command user
             },
           })
         } catch (error) {
@@ -1748,6 +1751,299 @@ ${webhookList}`,
               flags: 64,
             },
           })
+        }
+      }
+      // Add the XP command handler after the leaderboard command handler
+      // Find the leaderboard command handler and add this after it:
+
+      // Handle XP command
+      else if (name === "xp") {
+        const subCommand = options[0].name
+        const subCommandOptions = options[0].options || []
+
+        // Check if user has permission to manage XP (except for stats)
+        if (subCommand !== "stats" && subCommand !== "status") {
+          const hasPermission = await canManagePoints(guildId, moderator.id)
+          if (!hasPermission) {
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "You don't have permission to manage the XP system.",
+                flags: 64, // Ephemeral flag
+              },
+            })
+          }
+        }
+
+        if (subCommand === "config") {
+          try {
+            // Get current config
+            const currentConfig = await getXpConfig(guildId)
+
+            // Prepare update data
+            const updateData = {}
+
+            // Process each option
+            for (const option of subCommandOptions) {
+              switch (option.name) {
+                case "voice_enabled":
+                  updateData.voiceXpEnabled = option.value
+                  break
+                case "voice_per_minute":
+                  updateData.voiceXpPerMinute = option.value
+                  break
+                case "voice_cooldown":
+                  updateData.voiceXpCooldown = option.value
+                  break
+                case "media_enabled":
+                  updateData.mediaXpEnabled = option.value
+                  break
+                case "media_amount":
+                  updateData.mediaXpAmount = option.value
+                  break
+                case "media_cooldown":
+                  updateData.mediaXpCooldown = option.value
+                  break
+              }
+            }
+
+            // Update config if there are changes
+            if (Object.keys(updateData).length > 0) {
+              await updateXpConfig(guildId, updateData)
+            }
+
+            // Get updated config
+            const updatedConfig = await getXpConfig(guildId)
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `XP system configuration updated:
+- Voice XP: ${updatedConfig.voiceXpEnabled ? "Enabled" : "Disabled"}
+- Voice XP per minute: ${updatedConfig.voiceXpPerMinute}
+- Voice XP cooldown: ${updatedConfig.voiceXpCooldown} minutes
+- Media XP: ${updatedConfig.mediaXpEnabled ? "Enabled" : "Disabled"}
+- Media XP per submission: ${updatedConfig.mediaXpAmount}
+- Media XP cooldown: ${updatedConfig.mediaXpCooldown} minutes
+- Media channels: ${updatedConfig.mediaChannels.length > 0 ? updatedConfig.mediaChannels.map((id) => `<#${id}>`).join(", ") : "None configured"}`,
+                flags: 64, // Ephemeral flag
+              },
+            })
+          } catch (error) {
+            console.error("Error updating XP config:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to update XP configuration. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
+        } else if (subCommand === "media_channel") {
+          try {
+            const channelOption = subCommandOptions.find((opt) => opt.name === "channel")
+            const enabledOption = subCommandOptions.find((opt) => opt.name === "enabled")
+
+            if (!channelOption || enabledOption === undefined) {
+              return NextResponse.json({
+                type: CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                  content: "Please specify both a channel and whether to enable or disable XP.",
+                  flags: 64,
+                },
+              })
+            }
+
+            const channelId = channelOption.value
+            const enabled = enabledOption.value
+
+            // Get current config
+            const config = await getXpConfig(guildId)
+            let mediaChannels = [...(config.mediaChannels || [])]
+
+            if (enabled) {
+              // Add channel if not already in the list
+              if (!mediaChannels.includes(channelId)) {
+                mediaChannels.push(channelId)
+              }
+            } else {
+              // Remove channel if in the list
+              mediaChannels = mediaChannels.filter((id) => id !== channelId)
+            }
+
+            // Update config
+            await updateXpConfig(guildId, { mediaChannels })
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: `${enabled ? "Added" : "Removed"} <#${channelId}> ${enabled ? "to" : "from"} media XP channels.`,
+                flags: 64, // Ephemeral flag
+              },
+            })
+          } catch (error) {
+            console.error("Error updating media channels:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to update media channels. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
+        } else if (subCommand === "stats") {
+          try {
+            const userOption = subCommandOptions.find((opt) => opt.name === "user")
+            const targetUserId = userOption?.value || moderator.id // If no user specified, show the command user's stats
+
+            // Get user information
+            const userResponse = await discordRequest(`users/${targetUserId}`, {
+              method: "GET",
+            })
+            const user = await userResponse.json()
+
+            // Get points
+            const points = await getUserPoints(guildId, targetUserId)
+
+            // Get voice stats
+            const voiceStats = await getUserVoiceStats(guildId, targetUserId)
+
+            // Get media stats
+            const mediaStats = await getUserMediaStats(guildId, targetUserId)
+
+            // Format time
+            const hours = voiceStats ? Math.floor(voiceStats.totalSeconds / 3600) : 0
+            const minutes = voiceStats ? Math.floor((voiceStats.totalSeconds % 3600) / 60) : 0
+            const formattedTime = `${hours}h ${minutes}m`
+
+            // Create embed
+            const embed = {
+              title: `XP Stats for ${user.username}`,
+              color: 0x5865f2, // Discord blurple
+              fields: [
+                {
+                  name: "Total Points",
+                  value: `${points} XP`,
+                  inline: true,
+                },
+                {
+                  name: "Voice Time",
+                  value: voiceStats ? formattedTime : "None",
+                  inline: true,
+                },
+                {
+                  name: "Voice Sessions",
+                  value: voiceStats ? `${voiceStats.totalSessions}` : "0",
+                  inline: true,
+                },
+                {
+                  name: "Media Submissions",
+                  value: mediaStats ? `${mediaStats.totalSubmissions}` : "0",
+                  inline: true,
+                },
+                {
+                  name: "Media XP Earned",
+                  value: mediaStats ? `${mediaStats.totalXp} XP` : "0 XP",
+                  inline: true,
+                },
+              ],
+              thumbnail: {
+                url: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : null,
+              },
+              footer: {
+                text: "Powered by Hammy Bot",
+              },
+              timestamp: new Date().toISOString(),
+            }
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                embeds: [embed],
+                allowed_mentions: { parse: [] }, // Prevent user pings
+                flags: 64, // Ephemeral flag
+              },
+            })
+          } catch (error) {
+            console.error("Error getting XP stats:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to get XP stats. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
+        } else if (subCommand === "status") {
+          try {
+            // Get current config
+            const config = await getXpConfig(guildId)
+
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                embeds: [
+                  {
+                    title: "XP System Configuration",
+                    color: 0x5865f2, // Discord blurple
+                    fields: [
+                      {
+                        name: "Voice XP",
+                        value: config.voiceXpEnabled ? "Enabled" : "Disabled",
+                        inline: true,
+                      },
+                      {
+                        name: "Voice XP Rate",
+                        value: `${config.voiceXpPerMinute} XP per minute`,
+                        inline: true,
+                      },
+                      {
+                        name: "Voice XP Cooldown",
+                        value: `${config.voiceXpCooldown} minutes`,
+                        inline: true,
+                      },
+                      {
+                        name: "Media XP",
+                        value: config.mediaXpEnabled ? "Enabled" : "Disabled",
+                        inline: true,
+                      },
+                      {
+                        name: "Media XP Amount",
+                        value: `${config.mediaXpAmount} XP per submission`,
+                        inline: true,
+                      },
+                      {
+                        name: "Media XP Cooldown",
+                        value: `${config.mediaXpCooldown} minutes`,
+                        inline: true,
+                      },
+                      {
+                        name: "Media Channels",
+                        value:
+                          config.mediaChannels.length > 0
+                            ? config.mediaChannels.map((id) => `<#${id}>`).join(", ")
+                            : "None configured (all channels)",
+                      },
+                    ],
+                    footer: {
+                      text: "Powered by Hammy Bot",
+                    },
+                    timestamp: new Date().toISOString(),
+                  },
+                ],
+                flags: 64, // Ephemeral flag
+              },
+            })
+          } catch (error) {
+            console.error("Error getting XP config:", error)
+            return NextResponse.json({
+              type: CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: "Failed to get XP configuration. Please try again later.",
+                flags: 64,
+              },
+            })
+          }
         }
       }
 
