@@ -1,21 +1,29 @@
 import { NextResponse } from "next/server"
+import { verifyDiscordRequest } from "../../../lib/lib/discord/verifyRequest"
+import { discordRequest } from "./../../../lib/lib/discord/api"
+import { sendLogMessage, createLogEmbed } from "../../../../lib/discord/logs"
+
 import {
-  verifyDiscordRequest,
-  discordRequest,
   setLoggingChannel,
   disableLogging,
   getLoggingChannel,
-  sendLogMessage,
-  createLogEmbed,
+} from "../../../../lib/db/loggingChannels"
+
+import {
   setGithubWebhook,
   removeGithubWebhook,
   listGithubWebhooks,
+} from "../../../../lib/github/webhooks"
+
+import {
   addWarning,
   getWarnings,
   clearWarnings,
   clearWarning,
-} from "../../../../lib/discord"
-import { setStarboardConfig, getStarboardConfig, disableStarboard } from "../../../../lib/starboard"
+} from "../../../../lib/db/warnings"
+
+import { setStarboardConfig, getStarboardConfig, disableStarboard } from "../../../../lib/discord/starboard"
+
 import {
   getUserPoints,
   setUserPoints,
@@ -26,9 +34,11 @@ import {
   getLeaderboard,
   getPointsByRole,
   canManagePoints,
-} from "../../../../lib/points"
+} from "../../../../lib/discord/points"
 // Add the import for the XP functions at the top of the file with the other imports
-import { getXpConfig, updateXpConfig, getUserVoiceStats, getUserMediaStats } from "../../../../lib/xp"
+import { getXpConfig, updateXpConfig, getUserVoiceStats, getUserMediaStats } from "../../../../lib/discord/commands"
+
+// Honestly you need to rewrite this entire thing using some type of modular discord library instead of calling the discord API directly because this is crazy work
 
 // Interaction type constants
 const PING = 1
