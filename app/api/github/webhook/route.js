@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
 import { findGithubWebhook, createGithubEventEmbed, discordRequest } from "../../../../lib/discord"
+import { findGithubWebhook } from "../../../../lib/github/webhooks"
+import { createGithubEventEmbed } from "../../../../lib/github/embeds"
+import { discordRequest } from "../../../../lib/discord/api"
 import crypto from "crypto"
-import prisma from "../../../../lib/db"
+import prisma from "../../../../lib/db/prismaClient"
 
 // This endpoint receives webhook events from GitHub
 export async function POST(req) {

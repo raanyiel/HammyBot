@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { verifyDiscordRequest } from "../../../lib/lib/discord/verifyRequest"
-import { discordRequest } from "./../../../lib/lib/discord/api"
+import { verifyDiscordRequest } from "../../../lib/discord/verifyRequest"
+import { discordRequest } from "./../../../lib/discord/api"
 import { sendLogMessage, createLogEmbed } from "../../../../lib/discord/logs"
 
 import {
