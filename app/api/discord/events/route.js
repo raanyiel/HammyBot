@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { verifyDiscordRequest } from "../../../../lib/discord/verifyRequest"
-import { startVoiceSession, endVoiceSession, recordMediaSubmission } from "../../../../lib/discord/commands" // xp.js and commands.js are the exact same file; how does this import statement even compile??? you should use TS because this entire project is all over the place
+import { startVoiceSession, endVoiceSession, recordMediaSubmission } from "../../../../lib/discord/commands"
 
 export async function POST(req) {
   try {
@@ -100,4 +100,3 @@ async function handleMessageCreate(data) {
     console.error("Error handling message create:", error)
   }
 }
-

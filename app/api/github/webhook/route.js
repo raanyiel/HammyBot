@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import { findGithubWebhook, createGithubEventEmbed, discordRequest } from "../../../../lib/discord"
 import { findGithubWebhook } from "../../../../lib/github/webhooks"
 import { createGithubEventEmbed } from "../../../../lib/github/embeds"
 import { discordRequest } from "../../../../lib/discord/api"
@@ -96,4 +95,3 @@ export async function POST(req) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
-
