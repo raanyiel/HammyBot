@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import { registerCommands } from "../../../../lib/discord"
-import { ALL_COMMANDS } from "../../../../lib/commands"
+import { registerCommands } from "../../../../lib/discord/api"
+import { ALL_COMMANDS } from "../../../../lib/discord/commands"
 
 // This endpoint registers all slash commands with Discord
 export async function GET() {
@@ -32,4 +32,3 @@ export async function GET() {
     )
   }
 }
-
